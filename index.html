@@ -64,6 +64,46 @@
       border: 1px solid black;
       cursor: pointer;
     }
+    #gameOverDisplay {
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 4;
+      transition: top 0.8s ease-out;
+    }
+    #gameOverDisplay.show {
+      top: 30%;
+    }
+    #gameOverImage {
+      width: 300px;
+      margin-bottom: 10px;
+    }
+    .gameOverLabel {
+      font-size: 28px;
+      font-family: Arial, sans-serif;
+      color: white;
+      text-shadow: 2px 2px 2px black;
+      margin: 5px 0;
+    }
+    #restartButton {
+      margin-top: 20px;
+      padding: 12px 25px;
+      font-size: 20px;
+      font-family: Arial, sans-serif;
+      background: white;
+      border: 2px solid black;
+      cursor: pointer;
+      border-radius: 8px;
+      animation: bounce 1s infinite;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(-10px); }
+    }
   </style>
 </head>
 <body>
@@ -80,6 +120,13 @@
   </div>
 
   <button id="pauseButton" onclick="togglePause()">Pause</button>
+
+  <div id="gameOverDisplay">
+    <img src="PngItem_2298909.png" id="gameOverImage" />
+    <div class="gameOverLabel" id="highScoreLabel">High Score: 0</div>
+    <div class="gameOverLabel" id="finalScoreLabel">Score: 0</div>
+    <button id="restartButton">Restart</button>
+  </div>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
@@ -106,6 +153,7 @@
     let realGameStarted = false;
     let score = 0;
     let passedPipeIndex = 0;
+    let highScore = 0;
 
     const birdImg = new Image();
     birdImg.src = "IMG_1460.png";
@@ -138,7 +186,7 @@
     function addPipe() {
       const top = Math.random() * (height - PIPE_GAP - 200) + 100;
       const bottom = top + PIPE_GAP;
-      pipes.push({ x: width, top, bottom });
+      pipes.push({ x: width, top, bottom, scored: false });
     }
 
     function update() {
@@ -148,11 +196,10 @@
         }
         if (gameOver) {
           birdVelocity += GRAVITY;
-          birdAngle += 6;  // Spin speed
+          birdAngle += 6;
         } else {
           birdVelocity += GRAVITY;
-          if (birdVelocity < 0) birdAngle = -20;
-          else birdAngle = Math.min(birdAngle + 2, 90);
+          birdAngle = birdVelocity < 0 ? -20 : Math.min(birdAngle + 2, 90);
         }
 
         birdY += birdVelocity;
@@ -167,21 +214,26 @@
           const birdTop = birdY;
           const birdBottom = birdY + BIRD_SIZE;
 
-          pipes.forEach((pipe, i) => {
+          for (let pipe of pipes) {
             if (
               birdBoxX + BIRD_SIZE > pipe.x &&
               birdBoxX < pipe.x + PIPE_WIDTH &&
               (birdTop < pipe.top || birdBottom > pipe.bottom)
-            ) gameOver = true;
-          });
+            ) {
+              gameOver = true;
+              showGameOver();
+            }
 
-          if (birdY > height || birdY < 0) gameOver = true;
+            if (!pipe.scored && birdBoxX > pipe.x + PIPE_WIDTH / 2) {
+              score++;
+              pipe.scored = true;
+              document.getElementById("scoreDisplay").innerText = score;
+            }
+          }
 
-          // Scoring
-          if (pipes[passedPipeIndex] && birdBoxX > pipes[passedPipeIndex].x + PIPE_WIDTH) {
-            score++;
-            passedPipeIndex++;
-            document.getElementById("scoreDisplay").innerText = score;
+          if (birdY > height || birdY < 0) {
+            gameOver = true;
+            showGameOver();
           }
         }
       }
@@ -212,6 +264,7 @@
       gameOver = false;
       document.getElementById("scoreDisplay").innerText = "0";
       document.getElementById("startScreen").style.display = "none";
+      document.getElementById("gameOverDisplay").classList.remove("show");
     }
 
     function togglePause() {
@@ -240,9 +293,18 @@
       document.getElementById("pauseMenu").style.display = "none";
       document.getElementById("scoreDisplay").innerText = "0";
       document.getElementById("startScreen").style.display = "flex";
+      document.getElementById("gameOverDisplay").classList.remove("show");
+    }
+
+    function showGameOver() {
+      highScore = Math.max(highScore, score);
+      document.getElementById("highScoreLabel").innerText = "High Score: " + highScore;
+      document.getElementById("finalScoreLabel").innerText = "Score: " + score;
+      document.getElementById("gameOverDisplay").classList.add("show");
     }
 
     document.getElementById("startButton").addEventListener("click", startRealGame);
+    document.getElementById("restartButton").addEventListener("click", restartGame);
 
     document.addEventListener("keydown", () => {
       if (realGameStarted && !gameOver && !paused) birdVelocity = FLAP;
