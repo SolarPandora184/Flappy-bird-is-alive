@@ -25,10 +25,10 @@
       z-index: 3;
       text-shadow: 2px 2px 2px black;
     }
-    #pauseMenu, #startScreen {
+    #pauseMenu, #startScreen, #gameOverUI {
       position: absolute;
       width: 100%;
-      z-index: 2;
+      z-index: 4;
     }
     #pauseMenu {
       top: 50%;
@@ -64,45 +64,37 @@
       border: 1px solid black;
       cursor: pointer;
     }
-    #gameOverDisplay {
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      z-index: 4;
-      transition: top 0.8s ease-out;
-    }
-    #gameOverDisplay.show {
-      top: 30%;
-    }
-    #gameOverImage {
-      width: 300px;
-      margin-bottom: 10px;
-    }
-    .gameOverLabel {
-      font-size: 28px;
-      font-family: Arial, sans-serif;
+    #gameOverUI {
+      bottom: -300px;
+      text-align: center;
+      transition: bottom 1s ease-out;
       color: white;
       text-shadow: 2px 2px 2px black;
-      margin: 5px 0;
+      font-family: Arial, sans-serif;
+    }
+    #gameOverUI.visible {
+      bottom: 100px;
+    }
+    #gameOverUI img {
+      width: 300px;
+      max-width: 80%;
+    }
+    #gameOverUI p {
+      font-size: 30px;
+      margin: 10px 0;
     }
     #restartButton {
-      margin-top: 20px;
-      padding: 12px 25px;
-      font-size: 20px;
-      font-family: Arial, sans-serif;
+      margin-top: 15px;
+      padding: 10px 25px;
+      font-size: 18px;
+      cursor: pointer;
       background: white;
       border: 2px solid black;
-      cursor: pointer;
-      border-radius: 8px;
       animation: bounce 1s infinite;
     }
     @keyframes bounce {
-      0%, 100% { transform: translateX(-50%) translateY(0); }
-      50% { transform: translateX(-50%) translateY(-10px); }
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
     }
   </style>
 </head>
@@ -121,11 +113,11 @@
 
   <button id="pauseButton" onclick="togglePause()">Pause</button>
 
-  <div id="gameOverDisplay">
-    <img src="PngItem_2298909.png" id="gameOverImage" />
-    <div class="gameOverLabel" id="highScoreLabel">High Score: 0</div>
-    <div class="gameOverLabel" id="finalScoreLabel">Score: 0</div>
-    <button id="restartButton">Restart</button>
+  <div id="gameOverUI">
+    <img src="PngItem_2298909.png" alt="Game Over" />
+    <p id="highScoreText">High Score: 0</p>
+    <p id="currentScoreText">Score: 0</p>
+    <button id="restartButton" onclick="restartGame()">Restart</button>
   </div>
 
   <script>
@@ -143,6 +135,7 @@
     const PIPE_GAP = 200;
     const PIPE_SPACING = 300;
     const BIRD_SIZE = 48;
+
     let birdY = height / 2;
     let birdVelocity = 0;
     let birdAngle = 0;
@@ -152,15 +145,16 @@
     let paused = false;
     let realGameStarted = false;
     let score = 0;
-    let passedPipeIndex = 0;
     let highScore = 0;
-    let didDeathFlap = false;
+    let passedPipeIndex = 0;
+    let deathFlapFrames = 0;
+    let gameOverShown = false;
 
     const birdImg = new Image();
     birdImg.src = "IMG_1460.png";
 
     const bgImg = new Image();
-    bgImg.src = "background.png";
+    bgImg.src = "FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png";
 
     function drawBackground() {
       ctx.drawImage(bgImg, 0, 0, width, height);
@@ -187,7 +181,7 @@
     function addPipe() {
       const top = Math.random() * (height - PIPE_GAP - 200) + 100;
       const bottom = top + PIPE_GAP;
-      pipes.push({ x: width, top, bottom, scored: false });
+      pipes.push({ x: width, top, bottom });
     }
 
     function update() {
@@ -197,14 +191,13 @@
         }
 
         if (gameOver) {
-          if (!didDeathFlap) {
-            birdVelocity = FLAP;  // single extra flap on death
-            birdAngle = -45;
-            didDeathFlap = true;
+          if (deathFlapFrames < 10) {
+            birdVelocity = FLAP; // final flap
+            deathFlapFrames++;
           } else {
             birdVelocity += GRAVITY;
-            birdAngle += 12; // spin faster
           }
+          birdAngle += 6;
         } else {
           birdVelocity += GRAVITY;
           birdAngle = birdVelocity < 0 ? -20 : Math.min(birdAngle + 2, 90);
@@ -222,27 +215,29 @@
           const birdTop = birdY;
           const birdBottom = birdY + BIRD_SIZE;
 
-          for (let pipe of pipes) {
+          pipes.forEach((pipe, i) => {
             if (
               birdBoxX + BIRD_SIZE > pipe.x &&
               birdBoxX < pipe.x + PIPE_WIDTH &&
               (birdTop < pipe.top || birdBottom > pipe.bottom)
             ) {
               gameOver = true;
-              showGameOver();
             }
+          });
 
-            if (!pipe.scored && birdBoxX > pipe.x + PIPE_WIDTH / 2) {
-              score++;
-              pipe.scored = true;
-              document.getElementById("scoreDisplay").innerText = score;
-            }
-          }
+          if (birdY > height || birdY < 0) gameOver = true;
 
-          if (birdY > height || birdY < 0) {
-            gameOver = true;
-            showGameOver();
+          // Score update
+          if (pipes[passedPipeIndex] && birdBoxX > pipes[passedPipeIndex].x + PIPE_WIDTH / 2) {
+            score++;
+            passedPipeIndex++;
+            document.getElementById("scoreDisplay").innerText = score;
           }
+        }
+
+        if (gameOver && !gameOverShown) {
+          gameOverShown = true;
+          showGameOver();
         }
       }
     }
@@ -260,6 +255,13 @@
       requestAnimationFrame(gameLoop);
     }
 
+    function showGameOver() {
+      highScore = Math.max(score, highScore);
+      document.getElementById("highScoreText").innerText = `High Score: ${highScore}`;
+      document.getElementById("currentScoreText").innerText = `Score: ${score}`;
+      document.getElementById("gameOverUI").classList.add("visible");
+    }
+
     function startRealGame() {
       realGameStarted = true;
       pipes = [];
@@ -270,10 +272,11 @@
       score = 0;
       passedPipeIndex = 0;
       gameOver = false;
-      didDeathFlap = false;
+      gameOverShown = false;
+      deathFlapFrames = 0;
       document.getElementById("scoreDisplay").innerText = "0";
       document.getElementById("startScreen").style.display = "none";
-      document.getElementById("gameOverDisplay").classList.remove("show");
+      document.getElementById("gameOverUI").classList.remove("visible");
     }
 
     function togglePause() {
@@ -299,22 +302,15 @@
       score = 0;
       passedPipeIndex = 0;
       gameOver = false;
-      didDeathFlap = false;
+      gameOverShown = false;
+      deathFlapFrames = 0;
       document.getElementById("pauseMenu").style.display = "none";
       document.getElementById("scoreDisplay").innerText = "0";
       document.getElementById("startScreen").style.display = "flex";
-      document.getElementById("gameOverDisplay").classList.remove("show");
-    }
-
-    function showGameOver() {
-      highScore = Math.max(highScore, score);
-      document.getElementById("highScoreLabel").innerText = "High Score: " + highScore;
-      document.getElementById("finalScoreLabel").innerText = "Score: " + score;
-      document.getElementById("gameOverDisplay").classList.add("show");
+      document.getElementById("gameOverUI").classList.remove("visible");
     }
 
     document.getElementById("startButton").addEventListener("click", startRealGame);
-    document.getElementById("restartButton").addEventListener("click", restartGame);
 
     document.addEventListener("keydown", () => {
       if (realGameStarted && !gameOver && !paused) birdVelocity = FLAP;
