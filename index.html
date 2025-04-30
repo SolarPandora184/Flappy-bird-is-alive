@@ -22,7 +22,7 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // Game resolution base (same as original Flappy Bird)
+    // Base resolution for scaling
     const BASE_WIDTH = 288;
     const BASE_HEIGHT = 512;
 
@@ -34,18 +34,20 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
+    // Load images
     const bgImg = new Image();
     bgImg.src = 'FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png';
 
     const birdImg = new Image();
     birdImg.src = 'IMG_1460.png';
 
+    // Constants
     const GRAVITY = 0.5;
     const FLAP = -10;
     const PIPE_WIDTH = 52;
     const PIPE_GAP = 120;
-    const BIRD_WIDTH = 34;
-    const BIRD_HEIGHT = 24;
+    const BIRD_WIDTH = 68;  // 34 * 2
+    const BIRD_HEIGHT = 48; // 24 * 2
 
     let birdY = BASE_HEIGHT / 2;
     let birdVelocity = 0;
