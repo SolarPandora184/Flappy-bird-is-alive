@@ -26,6 +26,12 @@
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
 
+  // Load repeating background image from file named 'background.png'
+  const bgImg = new Image();
+  bgImg.src = 'background.png'; // Make sure this file exists in your GitHub repo
+
+  let bgX = 0;
+
   const GRAVITY = 0.6;
   const FLAP = -10;
   const PIPE_WIDTH = 60;
@@ -47,11 +53,15 @@
     }
   }
 
-  // Keyboard control
   document.addEventListener('keydown', flap);
-
-  // Mobile tap control
   canvas.addEventListener('touchstart', flap);
+
+  function drawBackground() {
+    bgX -= 1;
+    if (bgX <= -canvas.width) bgX = 0;
+    ctx.drawImage(bgImg, bgX, 0, canvas.width, canvas.height);
+    ctx.drawImage(bgImg, bgX + canvas.width, 0, canvas.width, canvas.height);
+  }
 
   function drawBird() {
     ctx.fillStyle = 'yellow';
@@ -101,6 +111,8 @@
   function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    drawBackground();
+
     birdVelocity += GRAVITY;
     birdY += birdVelocity;
 
@@ -118,7 +130,9 @@
     requestAnimationFrame(gameLoop);
   }
 
-  gameLoop();
+  bgImg.onload = () => {
+    gameLoop();
+  };
 </script>
 </body>
 </html>
