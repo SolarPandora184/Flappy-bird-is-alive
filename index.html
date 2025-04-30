@@ -13,24 +13,11 @@
     }
     canvas {
       display: block;
-    }
-    #scoreDisplay {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 40px;
-      font-family: Arial, sans-serif;
-      color: white;
-      z-index: 3;
-      text-shadow: 2px 2px 2px black;
-    }
-    #pauseMenu, #startScreen {
-      position: absolute;
-      width: 100%;
-      z-index: 2;
+      background: url('FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png') repeat-x;
+      background-size: cover;
     }
     #pauseMenu {
+      position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
@@ -38,15 +25,20 @@
       border: 2px solid black;
       padding: 20px;
       display: none;
+      z-index: 3;
     }
     #startScreen {
+      position: absolute;
       top: 0;
+      left: 0;
+      width: 100%;
       height: 100%;
       background: rgba(255, 255, 255, 0);
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
       align-items: center;
+      z-index: 2;
     }
     #startButton {
       margin-bottom: 50px;
@@ -58,17 +50,38 @@
       position: absolute;
       top: 10px;
       right: 10px;
-      z-index: 2;
+      z-index: 3;
       font-size: 20px;
       background: white;
       border: 1px solid black;
       cursor: pointer;
     }
+    #scoreDisplay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      font-size: 32px;
+      font-weight: bold;
+      color: white;
+      text-shadow: 2px 2px 4px black;
+      z-index: 3;
+    }
+    #fadeScreen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: black;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 4;
+      transition: opacity 1s ease;
+    }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
-  <div id="scoreDisplay">0</div>
 
   <div id="startScreen">
     <button id="startButton">Start Game</button>
@@ -80,6 +93,8 @@
   </div>
 
   <button id="pauseButton" onclick="togglePause()">Pause</button>
+  <div id="scoreDisplay">0</div>
+  <div id="fadeScreen"></div>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
@@ -95,7 +110,7 @@
     const PIPE_WIDTH = 80;
     const PIPE_GAP = 200;
     const PIPE_SPACING = 300;
-    const BIRD_SIZE = 48;
+    const BIRD_SIZE = 68;
     let birdY = height / 2;
     let birdVelocity = 0;
     let birdAngle = 0;
@@ -105,28 +120,21 @@
     let paused = false;
     let realGameStarted = false;
     let score = 0;
-    let passedPipeIndex = 0;
+    let deathTimer = 0;
 
     const birdImg = new Image();
     birdImg.src = "IMG_1460.png";
 
-    const bgImg = new Image();
-    bgImg.src = "FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png";
-
-    function drawBackground() {
-      ctx.drawImage(bgImg, 0, 0, width, height);
-    }
-
     function drawBird() {
       ctx.save();
       ctx.translate(width / 3 + BIRD_SIZE / 2, birdY + BIRD_SIZE / 2);
-      ctx.rotate(birdAngle * Math.PI / 180);
+      ctx.rotate((birdAngle * Math.PI) / 180);
       ctx.drawImage(birdImg, -BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
       ctx.restore();
     }
 
     function drawPipe(pipe) {
-      ctx.fillStyle = "#00FF00";
+      ctx.fillStyle = "#00ff00";
       ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.top);
       ctx.fillRect(pipe.x, pipe.bottom, PIPE_WIDTH, height - pipe.bottom);
     }
@@ -138,7 +146,7 @@
     function addPipe() {
       const top = Math.random() * (height - PIPE_GAP - 200) + 100;
       const bottom = top + PIPE_GAP;
-      pipes.push({ x: width, top, bottom });
+      pipes.push({ x: width, top, bottom, passed: false });
     }
 
     function update() {
@@ -146,49 +154,61 @@
         if (!realGameStarted) {
           if (frame % 25 === 0) birdVelocity = FLAP;
         }
+
         if (gameOver) {
           birdVelocity += GRAVITY;
-          birdAngle += 6;  // Spin speed
-        } else {
-          birdVelocity += GRAVITY;
-          if (birdVelocity < 0) birdAngle = -20;
-          else birdAngle = Math.min(birdAngle + 2, 90);
+          birdAngle += 6;
+          birdY += birdVelocity;
+
+          deathTimer++;
+          if (deathTimer === 60) {
+            document.getElementById("fadeScreen").style.opacity = 1;
+          }
+          if (deathTimer > 120) {
+            resetToStartScreen();
+          }
+          return;
         }
 
+        birdVelocity += GRAVITY;
+        birdAngle = birdVelocity < 0 ? -20 : Math.min(birdAngle + 2, 90);
         birdY += birdVelocity;
-
-        if (realGameStarted && frame % PIPE_SPACING === 0) addPipe();
 
         pipes.forEach(pipe => pipe.x -= 3);
         pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
 
-        if (!gameOver && realGameStarted) {
-          const birdBoxX = width / 3;
-          const birdTop = birdY;
-          const birdBottom = birdY + BIRD_SIZE;
+        if (pipes.length === 0 || pipes[pipes.length - 1].x < width - PIPE_SPACING) {
+          addPipe();
+        }
 
-          pipes.forEach((pipe, i) => {
-            if (
-              birdBoxX + BIRD_SIZE > pipe.x &&
-              birdBoxX < pipe.x + PIPE_WIDTH &&
-              (birdTop < pipe.top || birdBottom > pipe.bottom)
-            ) gameOver = true;
-          });
+        const birdX = width / 3;
 
-          if (birdY > height || birdY < 0) gameOver = true;
+        pipes.forEach(pipe => {
+          if (
+            birdX + BIRD_SIZE > pipe.x &&
+            birdX < pipe.x + PIPE_WIDTH &&
+            (birdY < pipe.top || birdY + BIRD_SIZE > pipe.bottom)
+          ) {
+            gameOver = true;
+            deathTimer = 0;
+          }
 
-          // Scoring
-          if (pipes[passedPipeIndex] && birdBoxX > pipes[passedPipeIndex].x + PIPE_WIDTH) {
+          if (!pipe.passed && pipe.x + PIPE_WIDTH < birdX) {
+            pipe.passed = true;
             score++;
-            passedPipeIndex++;
             document.getElementById("scoreDisplay").innerText = score;
           }
+        });
+
+        if (birdY > height || birdY < 0) {
+          gameOver = true;
+          deathTimer = 0;
         }
       }
     }
 
     function draw() {
-      drawBackground();
+      ctx.clearRect(0, 0, width, height);
       drawPipes();
       drawBird();
     }
@@ -200,18 +220,32 @@
       requestAnimationFrame(gameLoop);
     }
 
+    function resetToStartScreen() {
+      realGameStarted = false;
+      paused = false;
+      birdY = height / 2;
+      birdVelocity = 0;
+      birdAngle = 0;
+      pipes = [];
+      frame = 0;
+      score = 0;
+      gameOver = false;
+      deathTimer = 0;
+      document.getElementById("scoreDisplay").innerText = "0";
+      document.getElementById("startScreen").style.display = "flex";
+      document.getElementById("fadeScreen").style.opacity = 0;
+    }
+
     function startRealGame() {
       realGameStarted = true;
       pipes = [];
       birdY = height / 2;
       birdVelocity = 0;
-      birdAngle = 0;
       frame = 0;
-      score = 0;
-      passedPipeIndex = 0;
       gameOver = false;
-      document.getElementById("scoreDisplay").innerText = "0";
+      birdAngle = 0;
       document.getElementById("startScreen").style.display = "none";
+      document.getElementById("fadeScreen").style.opacity = 0;
     }
 
     function togglePause() {
@@ -227,19 +261,7 @@
     }
 
     function restartGame() {
-      realGameStarted = false;
-      paused = false;
-      birdY = height / 2;
-      birdVelocity = 0;
-      birdAngle = 0;
-      pipes = [];
-      frame = 0;
-      score = 0;
-      passedPipeIndex = 0;
-      gameOver = false;
-      document.getElementById("pauseMenu").style.display = "none";
-      document.getElementById("scoreDisplay").innerText = "0";
-      document.getElementById("startScreen").style.display = "flex";
+      resetToStartScreen();
     }
 
     document.getElementById("startButton").addEventListener("click", startRealGame);
