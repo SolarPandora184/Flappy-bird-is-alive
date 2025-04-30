@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Flappy Bird with Grace Period</title>
+  <title>Flappy Bird Game</title>
   <style>
     body {
       margin: 0;
@@ -13,16 +13,19 @@
     canvas {
       display: block;
     }
-    .pause-button {
+    .pause-button, .start-screen button {
       position: absolute;
-      top: 10px;
-      right: 10px;
       z-index: 10;
       background: rgba(255, 255, 255, 0.8);
       border: none;
-      padding: 10px;
-      font-size: 16px;
+      padding: 10px 20px;
+      font-size: 18px;
       border-radius: 5px;
+      cursor: pointer;
+    }
+    .pause-button {
+      top: 10px;
+      right: 10px;
     }
     .pause-menu {
       position: absolute;
@@ -45,10 +48,28 @@
       border-radius: 5px;
       cursor: pointer;
     }
+    .start-screen {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 15;
+    }
+    .start-screen button {
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
+  <div class="start-screen" id="startScreen">
+    <h1 style="color:white; font-family:sans-serif;">Flappy Bird</h1>
+    <button onclick="startRealGame()">Start Game</button>
+  </div>
   <button class="pause-button" id="pauseBtn">Pause</button>
   <div class="pause-menu" id="pauseMenu">
     <h2>Paused</h2>
@@ -61,6 +82,7 @@
     const ctx = canvas.getContext('2d');
     const pauseBtn = document.getElementById('pauseBtn');
     const pauseMenu = document.getElementById('pauseMenu');
+    const startScreen = document.getElementById('startScreen');
 
     const BASE_WIDTH = 288;
     const BASE_HEIGHT = 512;
@@ -86,6 +108,7 @@
     const BIRD_HEIGHT = 48;
 
     let birdY = BASE_HEIGHT / 2;
+    let birdX = 60;
     let birdVelocity = 0;
     let pipes = [];
     let frame = 0;
@@ -94,6 +117,7 @@
     let paused = false;
     let bgX = 0;
     let gameStarted = false;
+    let realGameStarted = false;
 
     function scaleX(x) {
       return x * canvas.width / BASE_WIDTH;
@@ -103,21 +127,16 @@
       return y * canvas.height / BASE_HEIGHT;
     }
 
-    function startGame() {
-      if (!gameStarted && !gameOver) {
-        gameStarted = true;
-      } else if (!gameOver && !paused) {
-        birdVelocity = FLAP;
-      } else if (gameOver) {
-        location.reload();
-      }
-    }
+    document.addEventListener('keydown', () => {
+      if (realGameStarted && !gameOver && !paused) birdVelocity = FLAP;
+    });
 
-    document.addEventListener('keydown', startGame);
-    canvas.addEventListener('touchstart', startGame);
+    canvas.addEventListener('touchstart', () => {
+      if (realGameStarted && !gameOver && !paused) birdVelocity = FLAP;
+    });
 
     pauseBtn.addEventListener('click', () => {
-      if (!paused && !gameOver && gameStarted) {
+      if (!paused && !gameOver && realGameStarted) {
         paused = true;
         pauseMenu.style.display = 'block';
       }
@@ -126,6 +145,16 @@
     function resumeGame() {
       paused = false;
       pauseMenu.style.display = 'none';
+    }
+
+    function startRealGame() {
+      realGameStarted = true;
+      gameStarted = true;
+      birdY = BASE_HEIGHT / 2;
+      birdVelocity = 0;
+      pipes = [];
+      score = 0;
+      startScreen.style.display = 'none';
     }
 
     function drawBackground() {
@@ -138,7 +167,7 @@
     function drawBird() {
       ctx.drawImage(
         birdImg,
-        scaleX(60),
+        scaleX(birdX),
         scaleY(birdY),
         scaleX(BIRD_WIDTH),
         scaleY(BIRD_HEIGHT)
@@ -162,7 +191,7 @@
       pipes.forEach(pipe => {
         pipe.x -= 2;
 
-        if (pipe.x + PIPE_WIDTH === 60) {
+        if (pipe.x + PIPE_WIDTH === birdX) {
           score++;
         }
 
@@ -172,8 +201,8 @@
         const hitboxHeight = BIRD_HEIGHT * 0.5;
 
         if (
-          60 + hitboxOffsetX + hitboxWidth > pipe.x &&
-          60 + hitboxOffsetX < pipe.x + PIPE_WIDTH &&
+          birdX + hitboxOffsetX + hitboxWidth > pipe.x &&
+          birdX + hitboxOffsetX < pipe.x + PIPE_WIDTH &&
           (birdY + hitboxOffsetY < pipe.top ||
            birdY + hitboxOffsetY + hitboxHeight > pipe.top + PIPE_GAP)
         ) {
@@ -199,7 +228,7 @@
     }
 
     function update() {
-      if (!gameOver && !paused && gameStarted) {
+      if (realGameStarted && !gameOver && !paused) {
         frame++;
         birdVelocity += GRAVITY;
         birdY += birdVelocity;
@@ -210,15 +239,19 @@
 
         updatePipes();
       }
+
+      // Splash screen loop
+      if (!realGameStarted) {
+        birdY += Math.sin(frame * 0.1) * 1.5;  // gentle up and down motion
+        frame++;
+      }
     }
 
     function draw() {
       drawBackground();
-      if (gameStarted) drawPipes();
+      if (realGameStarted) drawPipes();
       drawBird();
-      if (gameStarted) drawScore();
-      if (!gameStarted && !gameOver) drawStartMessage();
-
+      if (realGameStarted) drawScore();
       if (gameOver) {
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
