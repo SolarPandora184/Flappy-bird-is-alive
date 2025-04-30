@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Flappy Bird Clone</title>
+  <title>Flappy Bird Fullscreen</title>
   <style>
     body {
       margin: 0;
@@ -12,38 +12,56 @@
     }
     canvas {
       display: block;
-      margin: auto;
-      background: #70c5ce;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <canvas id="gameCanvas"></canvas>
 
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
+    // Game resolution base (same as original Flappy Bird)
+    const BASE_WIDTH = 288;
+    const BASE_HEIGHT = 512;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
     const bgImg = new Image();
-    bgImg.src = 'FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png'; // Background image (repeats)
+    bgImg.src = 'FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png';
 
     const birdImg = new Image();
-    birdImg.src = 'IMG_1460.png'; // Bird image name
+    birdImg.src = 'IMG_1460.png';
 
     const GRAVITY = 0.5;
     const FLAP = -10;
-    const PIPE_WIDTH = 60;
-    const PIPE_GAP = 150;
+    const PIPE_WIDTH = 52;
+    const PIPE_GAP = 120;
     const BIRD_WIDTH = 34;
     const BIRD_HEIGHT = 24;
 
-    let birdY = canvas.height / 2;
+    let birdY = BASE_HEIGHT / 2;
     let birdVelocity = 0;
     let pipes = [];
     let frame = 0;
     let score = 0;
     let gameOver = false;
     let bgX = 0;
+
+    function scaleX(x) {
+      return x * canvas.width / BASE_WIDTH;
+    }
+
+    function scaleY(y) {
+      return y * canvas.height / BASE_HEIGHT;
+    }
 
     function flap() {
       if (!gameOver) {
@@ -58,37 +76,42 @@
 
     function drawBackground() {
       bgX -= 1;
-      if (bgX <= -canvas.width) bgX = 0;
-      ctx.drawImage(bgImg, bgX, 0, canvas.width, canvas.height);
-      ctx.drawImage(bgImg, bgX + canvas.width, 0, canvas.width, canvas.height);
+      if (bgX <= -BASE_WIDTH) bgX = 0;
+      ctx.drawImage(bgImg, scaleX(bgX), 0, canvas.width, canvas.height);
+      ctx.drawImage(bgImg, scaleX(bgX + BASE_WIDTH), 0, canvas.width, canvas.height);
     }
 
     function drawBird() {
-      ctx.drawImage(birdImg, 60, birdY, BIRD_WIDTH, BIRD_HEIGHT);
+      ctx.drawImage(
+        birdImg,
+        scaleX(60),
+        scaleY(birdY),
+        scaleX(BIRD_WIDTH),
+        scaleY(BIRD_HEIGHT)
+      );
     }
 
     function drawPipes() {
       ctx.fillStyle = 'green';
       pipes.forEach(pipe => {
-        ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.top);
-        ctx.fillRect(pipe.x, pipe.top + PIPE_GAP, PIPE_WIDTH, canvas.height);
+        ctx.fillRect(scaleX(pipe.x), 0, scaleX(PIPE_WIDTH), scaleY(pipe.top));
+        ctx.fillRect(scaleX(pipe.x), scaleY(pipe.top + PIPE_GAP), scaleX(PIPE_WIDTH), canvas.height);
       });
     }
 
     function updatePipes() {
       if (frame % 100 === 0) {
-        const top = Math.random() * (canvas.height - PIPE_GAP - 100) + 50;
-        pipes.push({ x: canvas.width, top: top });
+        const top = Math.random() * (BASE_HEIGHT - PIPE_GAP - 100) + 50;
+        pipes.push({ x: BASE_WIDTH, top: top });
       }
+
       pipes.forEach(pipe => {
         pipe.x -= 2;
 
-        // Score
         if (pipe.x + PIPE_WIDTH === 60) {
           score++;
         }
 
-        // Collision
         if (
           60 + BIRD_WIDTH > pipe.x &&
           60 < pipe.x + PIPE_WIDTH &&
@@ -103,8 +126,8 @@
 
     function drawScore() {
       ctx.fillStyle = 'white';
-      ctx.font = '24px Arial';
-      ctx.fillText('Score: ' + score, 10, 30);
+      ctx.font = `${scaleY(24)}px Arial`;
+      ctx.fillText('Score: ' + score, scaleX(10), scaleY(30));
     }
 
     function update() {
@@ -113,7 +136,7 @@
         birdVelocity += GRAVITY;
         birdY += birdVelocity;
 
-        if (birdY + BIRD_HEIGHT >= canvas.height || birdY < 0) {
+        if (birdY + BIRD_HEIGHT >= BASE_HEIGHT || birdY < 0) {
           gameOver = true;
         }
 
@@ -131,10 +154,10 @@
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = 'white';
-        ctx.font = '36px Arial';
-        ctx.fillText('Game Over', 100, canvas.height / 2);
-        ctx.font = '18px Arial';
-        ctx.fillText('Tap to Restart', 130, canvas.height / 2 + 40);
+        ctx.font = `${scaleY(36)}px Arial`;
+        ctx.fillText('Game Over', scaleX(60), canvas.height / 2);
+        ctx.font = `${scaleY(18)}px Arial`;
+        ctx.fillText('Tap to Restart', scaleX(80), canvas.height / 2 + scaleY(40));
       }
     }
 
