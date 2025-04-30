@@ -154,12 +154,13 @@
     let score = 0;
     let passedPipeIndex = 0;
     let highScore = 0;
+    let didDeathFlap = false;
 
     const birdImg = new Image();
     birdImg.src = "IMG_1460.png";
 
     const bgImg = new Image();
-    bgImg.src = "FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png";
+    bgImg.src = "background.png";
 
     function drawBackground() {
       ctx.drawImage(bgImg, 0, 0, width, height);
@@ -194,9 +195,16 @@
         if (!realGameStarted) {
           if (frame % 25 === 0) birdVelocity = FLAP;
         }
+
         if (gameOver) {
-          birdVelocity += GRAVITY;
-          birdAngle += 6;
+          if (!didDeathFlap) {
+            birdVelocity = FLAP;  // single extra flap on death
+            birdAngle = -45;
+            didDeathFlap = true;
+          } else {
+            birdVelocity += GRAVITY;
+            birdAngle += 12; // spin faster
+          }
         } else {
           birdVelocity += GRAVITY;
           birdAngle = birdVelocity < 0 ? -20 : Math.min(birdAngle + 2, 90);
@@ -262,6 +270,7 @@
       score = 0;
       passedPipeIndex = 0;
       gameOver = false;
+      didDeathFlap = false;
       document.getElementById("scoreDisplay").innerText = "0";
       document.getElementById("startScreen").style.display = "none";
       document.getElementById("gameOverDisplay").classList.remove("show");
@@ -290,6 +299,7 @@
       score = 0;
       passedPipeIndex = 0;
       gameOver = false;
+      didDeathFlap = false;
       document.getElementById("pauseMenu").style.display = "none";
       document.getElementById("scoreDisplay").innerText = "0";
       document.getElementById("startScreen").style.display = "flex";
