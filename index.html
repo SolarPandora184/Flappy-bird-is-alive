@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Flappy Bird with Pause</title>
+  <title>Flappy Bird with Grace Period</title>
   <style>
     body {
       margin: 0;
@@ -93,6 +93,7 @@
     let gameOver = false;
     let paused = false;
     let bgX = 0;
+    let gameStarted = false;
 
     function scaleX(x) {
       return x * canvas.width / BASE_WIDTH;
@@ -102,19 +103,21 @@
       return y * canvas.height / BASE_HEIGHT;
     }
 
-    function flap() {
-      if (!gameOver && !paused) {
+    function startGame() {
+      if (!gameStarted && !gameOver) {
+        gameStarted = true;
+      } else if (!gameOver && !paused) {
         birdVelocity = FLAP;
       } else if (gameOver) {
         location.reload();
       }
     }
 
-    document.addEventListener('keydown', flap);
-    canvas.addEventListener('touchstart', flap);
+    document.addEventListener('keydown', startGame);
+    canvas.addEventListener('touchstart', startGame);
 
     pauseBtn.addEventListener('click', () => {
-      if (!paused && !gameOver) {
+      if (!paused && !gameOver && gameStarted) {
         paused = true;
         pauseMenu.style.display = 'block';
       }
@@ -187,8 +190,16 @@
       ctx.fillText('Score: ' + score, scaleX(10), scaleY(30));
     }
 
+    function drawStartMessage() {
+      ctx.fillStyle = 'white';
+      ctx.font = `${scaleY(24)}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.fillText('Tap to Start', canvas.width / 2, canvas.height - scaleY(40));
+      ctx.textAlign = 'left';
+    }
+
     function update() {
-      if (!gameOver && !paused) {
+      if (!gameOver && !paused && gameStarted) {
         frame++;
         birdVelocity += GRAVITY;
         birdY += birdVelocity;
@@ -203,9 +214,10 @@
 
     function draw() {
       drawBackground();
-      drawPipes();
+      if (gameStarted) drawPipes();
       drawBird();
-      drawScore();
+      if (gameStarted) drawScore();
+      if (!gameStarted && !gameOver) drawStartMessage();
 
       if (gameOver) {
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
