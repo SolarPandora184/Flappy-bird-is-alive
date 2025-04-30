@@ -39,14 +39,13 @@
     #tapToFlapText {
       position: absolute;
       bottom: 30px;
-      width: 100%;
-      text-align: center;
-      font-size: 28px;
-      font-family: Arial, sans-serif;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 24px;
       color: white;
+      font-family: Arial, sans-serif;
       text-shadow: 2px 2px 2px black;
       z-index: 3;
-      display: none;
     }
     #gameOverScreen {
       position: absolute;
@@ -63,6 +62,10 @@
     #gameOverText {
       width: 300px;
       animation: bounce 1s infinite alternate;
+      display: none;
+    }
+    #gameOverScreen.show #gameOverText {
+      display: block;
     }
     #gameOverInfo {
       font-size: 24px;
@@ -136,7 +139,7 @@ let pipes = [];
 let frame = 0;
 let gameOver = false;
 let realGameStarted = false;
-let waitingForFirstInput = true;
+let waitingForFirstInput = false;
 let score = 0;
 let highScore = 0;
 let useFirstScoreSound = true;
@@ -159,8 +162,11 @@ function drawBackground() {
 function drawBird() {
   ctx.save();
   ctx.translate(width / 3 + BIRD_SIZE / 2, birdY + BIRD_SIZE / 2);
-  let angle = (!realGameStarted || waitingForFirstInput) ? 0 : birdAngle;
-  ctx.rotate(angle * Math.PI / 180);
+  if (!realGameStarted || waitingForFirstInput) {
+    ctx.rotate(0);
+  } else {
+    ctx.rotate(birdAngle * Math.PI / 180);
+  }
   ctx.drawImage(birdImg, -BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
   ctx.restore();
 }
@@ -189,17 +195,19 @@ function update() {
 
     if (waitingForFirstInput) {
       birdVelocity = 0;
-      document.getElementById("tapToFlapText").style.display = "block";
     } else {
       birdVelocity += GRAVITY;
-      document.getElementById("tapToFlapText").style.display = "none";
       if (realGameStarted && frame % PIPE_SPACING === 0) addPipe();
     }
 
     birdY += birdVelocity;
 
-    if (!waitingForFirstInput) {
-      birdAngle = birdVelocity < 0 ? -20 : Math.min(birdAngle + 2, 90);
+    if (!realGameStarted || waitingForFirstInput) {
+      birdAngle = 0;
+    } else if (birdVelocity < 0) {
+      birdAngle = -20;
+    } else {
+      birdAngle = Math.min(birdAngle + 2, 90);
     }
 
     if (!waitingForFirstInput) {
@@ -211,9 +219,13 @@ function update() {
           score++;
           document.getElementById("scoreDisplay").innerText = score;
 
-          const sfx = useFirstScoreSound ? scoreSound1 : scoreSound2;
-          sfx.currentTime = 0;
-          sfx.play();
+          if (useFirstScoreSound) {
+            scoreSound1.currentTime = 0;
+            scoreSound1.play();
+          } else {
+            scoreSound2.currentTime = 0;
+            scoreSound2.play();
+          }
           useFirstScoreSound = !useFirstScoreSound;
         }
       });
@@ -267,8 +279,8 @@ function startRealGame() {
   gameOver = false;
   document.getElementById("scoreDisplay").innerText = "0";
   document.getElementById("startScreen").style.display = "none";
-  document.getElementById("gameOverScreen").classList.remove("show");
   document.getElementById("tapToFlapText").style.display = "block";
+  document.getElementById("gameOverScreen").classList.remove("show");
 }
 
 function triggerGameOver() {
@@ -290,20 +302,33 @@ function triggerGameOver() {
 function restartGame() {
   const overlay = document.getElementById("fadeOverlay");
   overlay.style.opacity = 1;
+
   setTimeout(() => {
+    // Reset everything
+    realGameStarted = false;
+    waitingForFirstInput = false;
+    gameOver = false;
+    pipes = [];
+    birdY = height / 2;
+    birdVelocity = 0;
+    birdAngle = 0;
+    frame = 0;
+    score = 0;
+
+    document.getElementById("scoreDisplay").innerText = "0";
     document.getElementById("gameOverScreen").classList.remove("show");
-    startRealGame();
+    document.getElementById("tapToFlapText").style.display = "none";
+    document.getElementById("startScreen").style.display = "flex";
+
     overlay.style.opacity = 0;
   }, 1000);
 }
-
-document.getElementById("startButton").addEventListener("click", startRealGame);
-document.getElementById("restartButton").addEventListener("click", restartGame);
 
 function handleFirstFlap() {
   if (realGameStarted && !gameOver) {
     if (waitingForFirstInput) {
       waitingForFirstInput = false;
+      document.getElementById("tapToFlapText").style.display = "none";
     }
     birdVelocity = FLAP;
     flapSound.currentTime = 0;
@@ -311,6 +336,8 @@ function handleFirstFlap() {
   }
 }
 
+document.getElementById("startButton").addEventListener("click", startRealGame);
+document.getElementById("restartButton").addEventListener("click", restartGame);
 document.addEventListener("keydown", handleFirstFlap);
 canvas.addEventListener("touchstart", e => {
   e.preventDefault();
