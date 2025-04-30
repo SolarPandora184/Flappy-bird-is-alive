@@ -66,14 +66,6 @@
       margin-bottom: 40px;
       animation: bounce 1.5s infinite;
     }
-    @keyframes bounce {
-      0%, 100% {
-        transform: translateY(0);
-      }
-      50% {
-        transform: translateY(-10px);
-      }
-    }
   </style>
 </head>
 <body>
@@ -126,8 +118,6 @@
     let paused = false;
     let bgX = 0;
     let realGameStarted = false;
-    let bounceOffset = 0;
-    let bounceDirection = 1;
 
     function scaleX(x) {
       return x * canvas.width / BASE_WIDTH;
@@ -176,17 +166,10 @@
     }
 
     function drawBird() {
-      let yOffset = 0;
-      if (!realGameStarted) {
-        if (bounceOffset >= 10) bounceDirection = -1;
-        if (bounceOffset <= -10) bounceDirection = 1;
-        bounceOffset += bounceDirection * 0.5;
-        yOffset = bounceOffset;
-      }
       ctx.drawImage(
         birdImg,
         scaleX(birdX),
-        scaleY(birdY + yOffset),
+        scaleY(birdY),
         scaleX(BIRD_WIDTH),
         scaleY(BIRD_HEIGHT)
       );
@@ -201,38 +184,44 @@
     }
 
     function updatePipes() {
-      if (frame % 100 === 0 && realGameStarted) {
+      if (frame % 100 === 0) {
         const top = Math.random() * (BASE_HEIGHT - PIPE_GAP - 100) + 50;
         pipes.push({ x: BASE_WIDTH, top: top });
       }
 
       pipes.forEach(pipe => {
         pipe.x -= 2;
-
-        const hitboxOffsetX = BIRD_WIDTH * 0.25;
-        const hitboxOffsetY = BIRD_HEIGHT * 0.25;
-        const hitboxWidth = BIRD_WIDTH * 0.5;
-        const hitboxHeight = BIRD_HEIGHT * 0.5;
-
-        if (
-          realGameStarted &&
-          birdX + hitboxOffsetX + hitboxWidth > pipe.x &&
-          birdX + hitboxOffsetX < pipe.x + PIPE_WIDTH &&
-          (birdY + hitboxOffsetY < pipe.top ||
-           birdY + hitboxOffsetY + hitboxHeight > pipe.top + PIPE_GAP)
-        ) {
-          gameOver = true;
-          startScreen.style.display = 'flex';
-        }
       });
 
       pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
     }
 
+    function getNextPipe() {
+      return pipes.find(pipe => pipe.x + PIPE_WIDTH > birdX);
+    }
+
+    function autoFlapControl() {
+      const next = getNextPipe();
+      if (next) {
+        const targetY = next.top + PIPE_GAP / 2 - BIRD_HEIGHT / 2;
+        if (birdY > targetY + 10 && birdVelocity > 0) {
+          birdVelocity = FLAP;
+        }
+      }
+    }
+
     function update() {
-      if (!gameOver && !paused) {
+      if (!paused) {
         frame++;
-        birdVelocity += GRAVITY;
+
+        if (!realGameStarted) {
+          autoFlapControl();
+        } else {
+          if (!gameOver) {
+            birdVelocity += GRAVITY;
+          }
+        }
+
         birdY += birdVelocity;
 
         if (realGameStarted && (birdY + BIRD_HEIGHT >= BASE_HEIGHT || birdY < 0)) {
