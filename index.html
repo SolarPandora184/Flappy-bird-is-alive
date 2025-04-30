@@ -10,9 +10,11 @@
       overflow: hidden;
       background: #000;
     }
+
     canvas {
       display: block;
     }
+
     .pause-button, .start-screen button {
       position: absolute;
       z-index: 10;
@@ -23,10 +25,12 @@
       border-radius: 5px;
       cursor: pointer;
     }
+
     .pause-button {
       top: 10px;
       right: 10px;
     }
+
     .pause-menu {
       position: absolute;
       top: 50%;
@@ -40,6 +44,7 @@
       display: none;
       z-index: 20;
     }
+
     .pause-menu button {
       margin: 10px;
       padding: 10px 20px;
@@ -48,29 +53,46 @@
       border-radius: 5px;
       cursor: pointer;
     }
+
     .start-screen {
       position: absolute;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.7);
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: flex-end;
       align-items: center;
       z-index: 15;
+      pointer-events: none;
     }
+
     .start-screen button {
-      margin-top: 20px;
+      pointer-events: auto;
+      margin-bottom: 40px;
+      animation: bounce 1.5s infinite;
+    }
+
+    @keyframes bounce {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-10px);
+      }
     }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
+
   <div class="start-screen" id="startScreen">
-    <h1 style="color:white; font-family:sans-serif;">Flappy Bird</h1>
     <button onclick="startRealGame()">Start Game</button>
   </div>
+
   <button class="pause-button" id="pauseBtn">Pause</button>
+
   <div class="pause-menu" id="pauseMenu">
     <h2>Paused</h2>
     <button onclick="resumeGame()">Continue</button>
@@ -116,7 +138,6 @@
     let gameOver = false;
     let paused = false;
     let bgX = 0;
-    let gameStarted = false;
     let realGameStarted = false;
 
     function scaleX(x) {
@@ -149,11 +170,10 @@
 
     function startRealGame() {
       realGameStarted = true;
-      gameStarted = true;
+      score = 0;
       birdY = BASE_HEIGHT / 2;
       birdVelocity = 0;
       pipes = [];
-      score = 0;
       startScreen.style.display = 'none';
     }
 
@@ -191,16 +211,13 @@
       pipes.forEach(pipe => {
         pipe.x -= 2;
 
-        if (pipe.x + PIPE_WIDTH === birdX) {
-          score++;
-        }
-
         const hitboxOffsetX = BIRD_WIDTH * 0.25;
         const hitboxOffsetY = BIRD_HEIGHT * 0.25;
         const hitboxWidth = BIRD_WIDTH * 0.5;
         const hitboxHeight = BIRD_HEIGHT * 0.5;
 
         if (
+          realGameStarted &&
           birdX + hitboxOffsetX + hitboxWidth > pipe.x &&
           birdX + hitboxOffsetX < pipe.x + PIPE_WIDTH &&
           (birdY + hitboxOffsetY < pipe.top ||
@@ -213,54 +230,24 @@
       pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
     }
 
-    function drawScore() {
-      ctx.fillStyle = 'white';
-      ctx.font = `${scaleY(24)}px Arial`;
-      ctx.fillText('Score: ' + score, scaleX(10), scaleY(30));
-    }
-
-    function drawStartMessage() {
-      ctx.fillStyle = 'white';
-      ctx.font = `${scaleY(24)}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.fillText('Tap to Start', canvas.width / 2, canvas.height - scaleY(40));
-      ctx.textAlign = 'left';
-    }
-
     function update() {
-      if (realGameStarted && !gameOver && !paused) {
+      if (!gameOver && !paused) {
         frame++;
         birdVelocity += GRAVITY;
         birdY += birdVelocity;
 
-        if (birdY + BIRD_HEIGHT >= BASE_HEIGHT || birdY < 0) {
+        if (realGameStarted && (birdY + BIRD_HEIGHT >= BASE_HEIGHT || birdY < 0)) {
           gameOver = true;
         }
 
         updatePipes();
       }
-
-      // Splash screen loop
-      if (!realGameStarted) {
-        birdY += Math.sin(frame * 0.1) * 1.5;  // gentle up and down motion
-        frame++;
-      }
     }
 
     function draw() {
       drawBackground();
-      if (realGameStarted) drawPipes();
+      drawPipes();
       drawBird();
-      if (realGameStarted) drawScore();
-      if (gameOver) {
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'white';
-        ctx.font = `${scaleY(36)}px Arial`;
-        ctx.fillText('Game Over', scaleX(60), canvas.height / 2);
-        ctx.font = `${scaleY(18)}px Arial`;
-        ctx.fillText('Tap to Restart', scaleX(80), canvas.height / 2 + scaleY(40));
-      }
     }
 
     function gameLoop() {
