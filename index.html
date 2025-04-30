@@ -197,7 +197,6 @@ function update() {
       birdVelocity += GRAVITY;
       birdY += birdVelocity;
 
-      // Keep bird within the gap
       if (birdY < nextPipe.top) {
         birdY = nextPipe.top;
         birdVelocity = 0;
@@ -205,8 +204,7 @@ function update() {
 
       if (birdY + BIRD_SIZE > flapZoneBottom) {
         birdVelocity = FLAP;
-        flapSound.currentTime = 0;
-        flapSound.play();
+        // Don't play flap sound during auto-flap
       }
     } else {
       document.getElementById("tapText").style.display = "none";
@@ -220,18 +218,22 @@ function update() {
         if (!pipe.passed && width / 3 > pipe.x + PIPE_WIDTH / 2) {
           pipe.passed = true;
           score++;
-          document.getElementById("scoreDisplay").innerText = score;
-
-          if (useFirstScoreSound) {
-            scoreSound1.currentTime = 0;
-            scoreSound1.play();
-          } else {
-            scoreSound2.currentTime = 0;
-            scoreSound2.play();
-          }
-          useFirstScoreSound = !useFirstScoreSound;
         }
       });
+
+      const scoreDisplayEl = document.getElementById("scoreDisplay");
+      const currentDisplayedScore = parseInt(scoreDisplayEl.innerText);
+      if (score !== currentDisplayedScore) {
+        scoreDisplayEl.innerText = score;
+        if (useFirstScoreSound) {
+          scoreSound1.currentTime = 0;
+          scoreSound1.play();
+        } else {
+          scoreSound2.currentTime = 0;
+          scoreSound2.play();
+        }
+        useFirstScoreSound = !useFirstScoreSound;
+      }
 
       pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
 
