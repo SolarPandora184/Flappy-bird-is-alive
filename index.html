@@ -203,8 +203,11 @@
     function autoFlapControl() {
       const next = getNextPipe();
       if (next) {
-        const targetY = next.top + PIPE_GAP / 2 - BIRD_HEIGHT / 2;
-        if (birdY > targetY + 10 && birdVelocity > 0) {
+        const gapCenter = next.top + PIPE_GAP / 2;
+        const birdCenter = birdY + BIRD_HEIGHT / 2;
+
+        // Improved logic: flap if bird is below gap center and falling
+        if (birdCenter > gapCenter + 5 && birdVelocity > 0) {
           birdVelocity = FLAP;
         }
       }
@@ -216,10 +219,8 @@
 
         if (!realGameStarted) {
           autoFlapControl();
-        } else {
-          if (!gameOver) {
-            birdVelocity += GRAVITY;
-          }
+        } else if (!gameOver) {
+          birdVelocity += GRAVITY;
         }
 
         birdY += birdVelocity;
