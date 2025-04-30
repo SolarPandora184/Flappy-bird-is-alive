@@ -139,34 +139,6 @@ function drawPipes() {
   pipes.forEach(drawPipe);
 }
 
-function setupIntroPipes() {
-  pipes = [];
-  for (let i = 0; i < 5; i++) {
-    const top = 150 + Math.sin(i) * 100;
-    pipes.push({
-      x: i * PIPE_SPACING + width / 2,
-      top,
-      bottom: top + PIPE_GAP,
-      passed: false
-    });
-  }
-}
-
-function loopIntroPipes() {
-  pipes.forEach(pipe => {
-    pipe.x -= 2;
-  });
-  if (pipes[0].x + PIPE_WIDTH < 0) {
-    const pipe = pipes.shift();
-    const top = 150 + Math.sin(frame / 30) * 100;
-    pipe.x = pipes[pipes.length - 1].x + PIPE_SPACING;
-    pipe.top = top;
-    pipe.bottom = top + PIPE_GAP;
-    pipe.passed = false;
-    pipes.push(pipe);
-  }
-}
-
 function addPipe() {
   const top = Math.random() * (height - PIPE_GAP - 200) + 100;
   const bottom = top + PIPE_GAP;
@@ -179,31 +151,20 @@ function update() {
     birdVelocity += GRAVITY;
     birdY += birdVelocity;
 
-    if (!realGameStarted) {
-      if (frame % 20 === 0) {
-        const target = pipes[0];
-        const centerY = target.top + PIPE_GAP / 2;
-        const birdCenter = birdY + BIRD_SIZE / 2;
-        if (birdCenter > centerY + 5) birdVelocity = FLAP;
+    if (realGameStarted && frame % 90 === 0) addPipe();
+
+    pipes.forEach(pipe => {
+      pipe.x -= 3;
+
+      if (!pipe.passed && pipe.x + PIPE_WIDTH < width / 3) {
+        score++;
+        document.getElementById("score").textContent = score;
+        pipe.passed = true;
       }
-      loopIntroPipes();
-    } else {
-      if (frame % 90 === 0) addPipe();
+    });
 
-      pipes.forEach(pipe => {
-        pipe.x -= 3;
+    pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
 
-        if (!pipe.passed && pipe.x + PIPE_WIDTH < width / 3) {
-          score++;
-          document.getElementById("score").textContent = score;
-          pipe.passed = true;
-        }
-      });
-
-      pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
-    }
-
-    // Collision (enabled at all times)
     pipes.forEach(pipe => {
       const birdX = width / 3 + BIRD_SIZE / 4;
       const birdTop = birdY + BIRD_SIZE / 4;
@@ -281,7 +242,6 @@ function restartGame() {
   document.getElementById("pauseMenu").style.display = "none";
   document.getElementById("startScreen").style.display = "flex";
   document.getElementById("score").textContent = score;
-  setupIntroPipes();
 }
 
 function triggerDeath() {
@@ -310,7 +270,6 @@ window.addEventListener("resize", () => {
   canvas.height = height;
 });
 
-setupIntroPipes();
 gameLoop();
 </script>
 </body>
