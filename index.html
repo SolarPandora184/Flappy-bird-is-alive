@@ -117,6 +117,17 @@ let fading = false;
 const birdImg = new Image();
 birdImg.src = "IMG_1460.png";
 
+const backgroundImg = new Image();
+backgroundImg.src = "background.png";
+let backgroundX = 0;
+
+function drawBackground() {
+  backgroundX -= 1;
+  if (backgroundX <= -canvas.width) backgroundX = 0;
+  ctx.drawImage(backgroundImg, backgroundX, 0, canvas.width, canvas.height);
+  ctx.drawImage(backgroundImg, backgroundX + canvas.width, 0, canvas.width, canvas.height);
+}
+
 function drawBird() {
   ctx.save();
   if (gameOver) {
@@ -195,7 +206,7 @@ function update() {
 }
 
 function draw() {
-  ctx.clearRect(0, 0, width, height);
+  drawBackground();
   drawPipes();
   drawBird();
 }
