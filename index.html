@@ -12,6 +12,7 @@
       font-family: sans-serif;
       touch-action: manipulation;
     }
+
     canvas {
       display: block;
       margin: 0 auto;
@@ -26,9 +27,9 @@
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
 
-  // Load repeating background image from file named 'background.png'
+  // Load repeating background image
   const bgImg = new Image();
-  bgImg.src = 'background.png'; // Make sure this file exists in your GitHub repo
+  bgImg.src = 'FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png'; // Your image
 
   let bgX = 0;
 
@@ -110,7 +111,6 @@
 
   function gameLoop() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     drawBackground();
 
     birdVelocity += GRAVITY;
@@ -118,9 +118,7 @@
 
     if (birdY + BIRD_SIZE > canvas.height || birdY < 0) gameOver = true;
 
-    if (!gameOver) {
-      updatePipes();
-    }
+    if (!gameOver) updatePipes();
 
     drawPipes();
     drawBird();
