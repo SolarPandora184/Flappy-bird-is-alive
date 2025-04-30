@@ -13,10 +13,24 @@
     }
     canvas {
       display: block;
-      background: url('FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png') repeat-x;
+    }
+    #scoreDisplay {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 40px;
+      font-family: Arial, sans-serif;
+      color: white;
+      z-index: 3;
+      text-shadow: 2px 2px 2px black;
+    }
+    #pauseMenu, #startScreen {
+      position: absolute;
+      width: 100%;
+      z-index: 2;
     }
     #pauseMenu {
-      position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
@@ -24,20 +38,15 @@
       border: 2px solid black;
       padding: 20px;
       display: none;
-      z-index: 2;
     }
     #startScreen {
-      position: absolute;
       top: 0;
-      left: 0;
-      width: 100%;
       height: 100%;
       background: rgba(255, 255, 255, 0);
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
       align-items: center;
-      z-index: 2;
     }
     #startButton {
       margin-bottom: 50px;
@@ -59,6 +68,7 @@
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
+  <div id="scoreDisplay">0</div>
 
   <div id="startScreen">
     <button id="startButton">Start Game</button>
@@ -85,28 +95,40 @@
     const PIPE_WIDTH = 80;
     const PIPE_GAP = 200;
     const PIPE_SPACING = 300;
-    const BIRD_SIZE = 68;
+    const BIRD_SIZE = 48;
     let birdY = height / 2;
     let birdVelocity = 0;
+    let birdAngle = 0;
     let pipes = [];
     let frame = 0;
     let gameOver = false;
     let paused = false;
     let realGameStarted = false;
+    let score = 0;
+    let passedPipeIndex = 0;
 
     const birdImg = new Image();
     birdImg.src = "IMG_1460.png";
 
-    const pipeImg = new Image();
-    pipeImg.src = "IMG_1464.png";
+    const bgImg = new Image();
+    bgImg.src = "FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png";
+
+    function drawBackground() {
+      ctx.drawImage(bgImg, 0, 0, width, height);
+    }
 
     function drawBird() {
-      ctx.drawImage(birdImg, width / 3, birdY, BIRD_SIZE, BIRD_SIZE);
+      ctx.save();
+      ctx.translate(width / 3 + BIRD_SIZE / 2, birdY + BIRD_SIZE / 2);
+      ctx.rotate(birdAngle * Math.PI / 180);
+      ctx.drawImage(birdImg, -BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
+      ctx.restore();
     }
 
     function drawPipe(pipe) {
-      ctx.drawImage(pipeImg, pipe.x, pipe.top - pipeImg.height, PIPE_WIDTH, pipeImg.height);
-      ctx.drawImage(pipeImg, pipe.x, pipe.bottom, PIPE_WIDTH, pipeImg.height);
+      ctx.fillStyle = "#00FF00";
+      ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.top);
+      ctx.fillRect(pipe.x, pipe.bottom, PIPE_WIDTH, height - pipe.bottom);
     }
 
     function drawPipes() {
@@ -124,7 +146,15 @@
         if (!realGameStarted) {
           if (frame % 25 === 0) birdVelocity = FLAP;
         }
-        birdVelocity += GRAVITY;
+        if (gameOver) {
+          birdVelocity += GRAVITY;
+          birdAngle += 6;  // Spin speed
+        } else {
+          birdVelocity += GRAVITY;
+          if (birdVelocity < 0) birdAngle = -20;
+          else birdAngle = Math.min(birdAngle + 2, 90);
+        }
+
         birdY += birdVelocity;
 
         if (realGameStarted && frame % PIPE_SPACING === 0) addPipe();
@@ -132,34 +162,41 @@
         pipes.forEach(pipe => pipe.x -= 3);
         pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
 
-        pipes.forEach(pipe => {
-          const birdX = width / 3 + BIRD_SIZE / 4;
-          const birdTop = birdY + BIRD_SIZE / 4;
-          const birdBottom = birdY + BIRD_SIZE * 0.75;
+        if (!gameOver && realGameStarted) {
+          const birdBoxX = width / 3;
+          const birdTop = birdY;
+          const birdBottom = birdY + BIRD_SIZE;
 
-          if (
-            birdX + BIRD_SIZE / 2 > pipe.x &&
-            birdX < pipe.x + PIPE_WIDTH &&
-            (birdTop < pipe.top || birdBottom > pipe.bottom)
-          ) gameOver = true;
-        });
+          pipes.forEach((pipe, i) => {
+            if (
+              birdBoxX + BIRD_SIZE > pipe.x &&
+              birdBoxX < pipe.x + PIPE_WIDTH &&
+              (birdTop < pipe.top || birdBottom > pipe.bottom)
+            ) gameOver = true;
+          });
 
-        if (birdY > height || birdY < 0) gameOver = true;
+          if (birdY > height || birdY < 0) gameOver = true;
+
+          // Scoring
+          if (pipes[passedPipeIndex] && birdBoxX > pipes[passedPipeIndex].x + PIPE_WIDTH) {
+            score++;
+            passedPipeIndex++;
+            document.getElementById("scoreDisplay").innerText = score;
+          }
+        }
       }
     }
 
     function draw() {
-      ctx.clearRect(0, 0, width, height);
+      drawBackground();
       drawPipes();
       drawBird();
     }
 
     function gameLoop() {
-      if (!gameOver) {
-        update();
-        draw();
-        frame++;
-      }
+      update();
+      draw();
+      frame++;
       requestAnimationFrame(gameLoop);
     }
 
@@ -168,8 +205,12 @@
       pipes = [];
       birdY = height / 2;
       birdVelocity = 0;
+      birdAngle = 0;
       frame = 0;
+      score = 0;
+      passedPipeIndex = 0;
       gameOver = false;
+      document.getElementById("scoreDisplay").innerText = "0";
       document.getElementById("startScreen").style.display = "none";
     }
 
@@ -190,10 +231,14 @@
       paused = false;
       birdY = height / 2;
       birdVelocity = 0;
+      birdAngle = 0;
       pipes = [];
       frame = 0;
+      score = 0;
+      passedPipeIndex = 0;
       gameOver = false;
       document.getElementById("pauseMenu").style.display = "none";
+      document.getElementById("scoreDisplay").innerText = "0";
       document.getElementById("startScreen").style.display = "flex";
     }
 
