@@ -184,27 +184,28 @@ function addPipe() {
 
 function update() {
   if (!gameOver) {
-    if (!realGameStarted) {
-      if (frame % 25 === 0) birdVelocity = FLAP;
-    }
-
     if (waitingForFirstInput) {
       document.getElementById("tapText").style.display = "block";
-      birdVelocity = 0;
+
+      // Auto-generate one pipe if none exist
+      if (pipes.length === 0) addPipe();
+
+      const nextPipe = pipes.find(p => p.x + PIPE_WIDTH > width / 3) || pipes[0];
+      const targetMid = (nextPipe.top + nextPipe.bottom) / 2;
+      const flapZoneTop = targetMid - 30;
+      const flapZoneBottom = targetMid + 30;
+
+      if (birdY + BIRD_SIZE > flapZoneBottom) {
+        birdVelocity = FLAP;
+        flapSound.currentTime = 0;
+        flapSound.play();
+      }
     } else {
       document.getElementById("tapText").style.display = "none";
       birdVelocity += GRAVITY;
+
       if (realGameStarted && frame % PIPE_SPACING === 0) addPipe();
-    }
 
-    birdY += birdVelocity;
-
-    if (!waitingForFirstInput) {
-      if (birdVelocity < 0) birdAngle = -20;
-      else birdAngle = Math.min(birdAngle + 2, 90);
-    }
-
-    if (!waitingForFirstInput) {
       pipes.forEach(pipe => {
         pipe.x -= 3;
 
@@ -240,6 +241,13 @@ function update() {
       });
 
       if (birdY > height || birdY < 0) triggerGameOver();
+    }
+
+    birdY += birdVelocity;
+
+    if (!waitingForFirstInput) {
+      if (birdVelocity < 0) birdAngle = -20;
+      else birdAngle = Math.min(birdAngle + 2, 90);
     }
   } else {
     birdVelocity += GRAVITY;
