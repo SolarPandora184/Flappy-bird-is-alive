@@ -109,6 +109,9 @@
 
   <div id="fadeOverlay"></div>
 
+  <!-- Death Sound -->
+  <audio id="deathSound" src="traimory-hit-low-gun-shot-cinematic-trailer-sound-effects-161154.mp3"></audio>
+
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
@@ -134,7 +137,6 @@
     let realGameStarted = false;
     let score = 0;
     let highScore = 0;
-    let fadeState = 0;
 
     const birdImg = new Image();
     birdImg.src = "IMG_1460.png";
@@ -195,7 +197,6 @@
 
         pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
 
-        // Collision detection
         pipes.forEach(pipe => {
           const birdBoxX = width / 3;
           const birdTop = birdY;
@@ -249,6 +250,12 @@
         birdVelocity = FLAP;
         birdAngle = 0;
         gameOver = true;
+
+        // Play death sound
+        const deathSound = document.getElementById("deathSound");
+        deathSound.currentTime = 0;
+        deathSound.play();
+
         setTimeout(() => {
           if (score > highScore) highScore = score;
           document.getElementById("gameOverInfo").innerHTML =
