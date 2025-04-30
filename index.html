@@ -29,14 +29,24 @@
       justify-content: flex-end;
       align-items: center;
       z-index: 2;
-      pointer-events: none;
     }
-    #tapText {
+    #startButton {
+      margin-bottom: 50px;
+      padding: 15px 30px;
+      font-size: 20px;
+      cursor: pointer;
+    }
+    #tapToFlapText {
+      position: absolute;
+      bottom: 30px;
+      width: 100%;
+      text-align: center;
       font-size: 28px;
-      color: white;
-      margin-bottom: 40px;
       font-family: Arial, sans-serif;
+      color: white;
       text-shadow: 2px 2px 2px black;
+      z-index: 3;
+      display: none;
     }
     #gameOverScreen {
       position: absolute;
@@ -89,9 +99,8 @@
 <body>
 <canvas id="gameCanvas"></canvas>
 <div id="scoreDisplay">0</div>
-<div id="startScreen">
-  <div id="tapText">Tap to Flap</div>
-</div>
+<div id="startScreen"><button id="startButton">Start Game</button></div>
+<div id="tapToFlapText">Tap to Flap</div>
 <div id="gameOverScreen">
   <img id="gameOverText" src="PngItem_2298909.png" alt="Game Over" />
   <div id="gameOverInfo"></div>
@@ -150,7 +159,8 @@ function drawBackground() {
 function drawBird() {
   ctx.save();
   ctx.translate(width / 3 + BIRD_SIZE / 2, birdY + BIRD_SIZE / 2);
-  ctx.rotate(birdAngle * Math.PI / 180);
+  let angle = (!realGameStarted || waitingForFirstInput) ? 0 : birdAngle;
+  ctx.rotate(angle * Math.PI / 180);
   ctx.drawImage(birdImg, -BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
   ctx.restore();
 }
@@ -174,24 +184,23 @@ function addPipe() {
 function update() {
   if (!gameOver) {
     if (!realGameStarted) {
-      if (frame % 25 === 0) {
-        birdVelocity = FLAP;
-        flapSound.currentTime = 0;
-        flapSound.play();
-      }
+      if (frame % 25 === 0) birdVelocity = FLAP;
     }
 
     if (waitingForFirstInput) {
-      // prevent gravity
+      birdVelocity = 0;
+      document.getElementById("tapToFlapText").style.display = "block";
     } else {
       birdVelocity += GRAVITY;
+      document.getElementById("tapToFlapText").style.display = "none";
       if (realGameStarted && frame % PIPE_SPACING === 0) addPipe();
     }
 
     birdY += birdVelocity;
 
-    if (birdVelocity < 0) birdAngle = -20;
-    else birdAngle = Math.min(birdAngle + 2, 90);
+    if (!waitingForFirstInput) {
+      birdAngle = birdVelocity < 0 ? -20 : Math.min(birdAngle + 2, 90);
+    }
 
     if (!waitingForFirstInput) {
       pipes.forEach(pipe => {
@@ -202,13 +211,9 @@ function update() {
           score++;
           document.getElementById("scoreDisplay").innerText = score;
 
-          if (useFirstScoreSound) {
-            scoreSound1.currentTime = 0;
-            scoreSound1.play();
-          } else {
-            scoreSound2.currentTime = 0;
-            scoreSound2.play();
-          }
+          const sfx = useFirstScoreSound ? scoreSound1 : scoreSound2;
+          sfx.currentTime = 0;
+          sfx.play();
           useFirstScoreSound = !useFirstScoreSound;
         }
       });
@@ -261,8 +266,9 @@ function startRealGame() {
   score = 0;
   gameOver = false;
   document.getElementById("scoreDisplay").innerText = "0";
-  document.getElementById("startScreen").style.display = "flex";
+  document.getElementById("startScreen").style.display = "none";
   document.getElementById("gameOverScreen").classList.remove("show");
+  document.getElementById("tapToFlapText").style.display = "block";
 }
 
 function triggerGameOver() {
@@ -284,7 +290,6 @@ function triggerGameOver() {
 function restartGame() {
   const overlay = document.getElementById("fadeOverlay");
   overlay.style.opacity = 1;
-
   setTimeout(() => {
     document.getElementById("gameOverScreen").classList.remove("show");
     startRealGame();
@@ -292,11 +297,13 @@ function restartGame() {
   }, 1000);
 }
 
+document.getElementById("startButton").addEventListener("click", startRealGame);
+document.getElementById("restartButton").addEventListener("click", restartGame);
+
 function handleFirstFlap() {
   if (realGameStarted && !gameOver) {
     if (waitingForFirstInput) {
       waitingForFirstInput = false;
-      document.getElementById("startScreen").style.display = "none";
     }
     birdVelocity = FLAP;
     flapSound.currentTime = 0;
@@ -304,7 +311,6 @@ function handleFirstFlap() {
   }
 }
 
-document.getElementById("restartButton").addEventListener("click", restartGame);
 document.addEventListener("keydown", handleFirstFlap);
 canvas.addEventListener("touchstart", e => {
   e.preventDefault();
