@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Flappy Bird Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Flappy Bird</title>
   <style>
     body {
       margin: 0;
@@ -75,17 +75,24 @@
     }
 
     @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-10px);
+      }
     }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
+
   <div class="start-screen" id="startScreen">
     <button onclick="startRealGame()">Start Game</button>
   </div>
+
   <button class="pause-button" id="pauseBtn">Pause</button>
+
   <div class="pause-menu" id="pauseMenu">
     <h2>Paused</h2>
     <button onclick="resumeGame()">Continue</button>
@@ -116,7 +123,7 @@
     birdImg.src = 'IMG_1460.png';
 
     const pipeImg = new Image();
-    pipeImg.src = 'IMG_1463.jpeg';
+    pipeImg.src = 'IMG_1464.jpeg';
 
     const GRAVITY = 0.5;
     const FLAP = -10;
@@ -132,8 +139,8 @@
     let frame = 0;
     let gameOver = false;
     let paused = false;
-    let bgX = 0;
     let realGameStarted = false;
+    let bgX = 0;
 
     function scaleX(x) {
       return x * canvas.width / BASE_WIDTH;
@@ -144,14 +151,12 @@
     }
 
     document.addEventListener('keydown', () => {
-      if (!realGameStarted || gameOver || paused) return;
-      birdVelocity = FLAP;
+      if (realGameStarted && !gameOver && !paused) birdVelocity = FLAP;
     });
 
     canvas.addEventListener('touchstart', () => {
-      if (!realGameStarted || gameOver || paused) return;
-      birdVelocity = FLAP;
-    }, { passive: false });
+      if (realGameStarted && !gameOver && !paused) birdVelocity = FLAP;
+    });
 
     pauseBtn.addEventListener('click', () => {
       if (!paused && !gameOver && realGameStarted) {
@@ -167,10 +172,11 @@
 
     function startRealGame() {
       realGameStarted = true;
-      gameOver = false;
       birdY = BASE_HEIGHT / 2;
       birdVelocity = 0;
       pipes = [];
+      frame = 0;
+      gameOver = false;
       startScreen.style.display = 'none';
     }
 
@@ -193,67 +199,47 @@
 
     function drawPipes() {
       pipes.forEach(pipe => {
-        const pipeHeight = scaleY(pipe.top);
-        const pipeBottomY = scaleY(pipe.top + PIPE_GAP);
-        const pipeX = scaleX(pipe.x);
-        const pipeW = scaleX(PIPE_WIDTH);
-        const pipeH = canvas.height;
-
-        // Top pipe
-        ctx.save();
-        ctx.translate(pipeX + pipeW / 2, pipeHeight);
-        ctx.scale(1, -1);
-        ctx.drawImage(pipeImg, -pipeW / 2, 0, pipeW, pipeH);
-        ctx.restore();
-
-        // Bottom pipe
-        ctx.drawImage(pipeImg, pipeX, pipeBottomY, pipeW, pipeH);
+        ctx.drawImage(pipeImg, scaleX(pipe.x), scaleY(pipe.top - pipeImg.height), scaleX(PIPE_WIDTH), scaleY(pipeImg.height));
+        ctx.drawImage(pipeImg, scaleX(pipe.x), scaleY(pipe.top + PIPE_GAP), scaleX(PIPE_WIDTH), scaleY(pipeImg.height));
       });
     }
 
     function updatePipes() {
       if (frame % 100 === 0) {
         const top = Math.random() * (BASE_HEIGHT - PIPE_GAP - 100) + 50;
-        pipes.push({ x: BASE_WIDTH, top });
+        pipes.push({ x: BASE_WIDTH, top: top });
       }
 
       pipes.forEach(pipe => {
         pipe.x -= 2;
+
+        const hitboxOffsetX = BIRD_WIDTH * 0.25;
+        const hitboxOffsetY = BIRD_HEIGHT * 0.25;
+        const hitboxWidth = BIRD_WIDTH * 0.5;
+        const hitboxHeight = BIRD_HEIGHT * 0.5;
+
+        if (
+          realGameStarted &&
+          birdX + hitboxOffsetX + hitboxWidth > pipe.x &&
+          birdX + hitboxOffsetX < pipe.x + PIPE_WIDTH &&
+          (birdY + hitboxOffsetY < pipe.top ||
+           birdY + hitboxOffsetY + hitboxHeight > pipe.top + PIPE_GAP)
+        ) {
+          gameOver = true;
+        }
       });
 
       pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
     }
 
-    function getNextPipe() {
-      return pipes.find(pipe => pipe.x + PIPE_WIDTH > birdX);
-    }
-
-    function autoFlapControl() {
-      const next = getNextPipe();
-      if (next) {
-        const gapCenter = next.top + PIPE_GAP / 2;
-        const birdCenter = birdY + BIRD_HEIGHT / 2;
-        if (birdCenter > gapCenter + 5 && birdVelocity > 0) {
-          birdVelocity = FLAP;
-        }
-      }
-    }
-
     function update() {
-      if (!paused) {
+      if (!gameOver && !paused) {
         frame++;
-
-        if (!realGameStarted) {
-          autoFlapControl();
-        } else if (!gameOver) {
-          birdVelocity += GRAVITY;
-        }
-
+        birdVelocity += GRAVITY;
         birdY += birdVelocity;
 
         if (realGameStarted && (birdY + BIRD_HEIGHT >= BASE_HEIGHT || birdY < 0)) {
           gameOver = true;
-          startScreen.style.display = 'flex';
         }
 
         updatePipes();
