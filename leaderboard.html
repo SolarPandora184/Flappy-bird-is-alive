@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Leaderboard</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: black;
+      color: white;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    li {
+      background: #222;
+      margin: 5px 0;
+      padding: 10px;
+      border-radius: 5px;
+      font-size: 18px;
+    }
+    a {
+      display: block;
+      margin: 20px auto;
+      width: max-content;
+      padding: 8px 14px;
+      background: white;
+      color: black;
+      text-decoration: none;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Top Scores</h1>
+  <ul id="leaderboard"></ul>
+  <a href="index.html">Back to Game</a>
+
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDtbNUO10AIsoEmqjF7...",
+      authDomain: "leaderboard-b2da0.firebaseapp.com",
+      projectId: "leaderboard-b2da0",
+      storageBucket: "leaderboard-b2da0.appspot.com",
+      messagingSenderId: "263059182433",
+      appId: "1:263059182433:web:325402c0..."
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    async function loadLeaderboard() {
+      const scoresRef = db.ref('scores');
+      const snapshot = await scoresRef.orderByChild('score').limitToLast(10).once('value');
+      const scores = [];
+      snapshot.forEach(child => scores.push(child.val()));
+      scores.sort((a, b) => b.score - a.score);
+
+      const list = document.getElementById('leaderboard');
+      list.innerHTML = '';
+      for (let s of scores) {
+        const li = document.createElement('li');
+        li.textContent = `${s.name}: ${s.score}`;
+        list.appendChild(li);
+      }
+    }
+
+    loadLeaderboard();
+  </script>
+</body>
+</html>
