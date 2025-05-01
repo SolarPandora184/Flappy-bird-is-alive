@@ -97,9 +97,44 @@
       text-shadow: 2px 2px 2px black;
       z-index: 3;
     }
+    #passwordScreen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: black;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+    #passwordScreen input {
+      padding: 10px;
+      font-size: 18px;
+    }
+    #passwordScreen button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+    #passwordError {
+      color: red;
+      display: none;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
+<div id="passwordScreen">
+  <h2>Enter Password</h2>
+  <input type="password" id="passwordInput" placeholder="Password" />
+  <button id="submitPassword">Submit</button>
+  <p id="passwordError">Incorrect password.</p>
+</div>
+
 <canvas id="gameCanvas"></canvas>
 <div id="scoreDisplay">0</div>
 <div id="startScreen"><button id="startButton">Start Game</button></div>
@@ -204,7 +239,6 @@ function update() {
 
       if (birdY + BIRD_SIZE > flapZoneBottom) {
         birdVelocity = FLAP;
-        // Don't play flap sound during auto-flap
       }
     } else {
       document.getElementById("tapText").style.display = "none";
@@ -350,7 +384,30 @@ window.addEventListener("resize", () => {
   canvas.height = height;
 });
 
-gameLoop();
+// PASSWORD GATE
+const passwordScreen = document.getElementById("passwordScreen");
+const submitPassword = document.getElementById("submitPassword");
+const passwordInput = document.getElementById("passwordInput");
+const passwordError = document.getElementById("passwordError");
+
+function showGame() {
+  passwordScreen.style.display = "none";
+  gameLoop();
+}
+
+if (localStorage.getItem("passwordAccepted") === "true") {
+  showGame();
+} else {
+  submitPassword.addEventListener("click", () => {
+    const input = passwordInput.value.trim().toLowerCase();
+    if (input === "caprocz".toLowerCase()) {
+      localStorage.setItem("passwordAccepted", "true");
+      showGame();
+    } else {
+      passwordError.style.display = "block";
+    }
+  });
+}
 </script>
 </body>
 </html>
