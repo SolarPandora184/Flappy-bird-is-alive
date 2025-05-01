@@ -1,260 +1,268 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Flappy Bird Clone</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: #70c5ce;
-    }
-    canvas {
-      display: block;
-      margin: 0 auto;
-      background: #70c5ce;
-    }
-    #nameInput {
+    html, body { margin: 0; padding: 0; overflow: hidden; background: #70c5ce; }
+    canvas { display: block; }
+    #scoreDisplay {
       position: absolute;
-      top: 50%;
+      top: 20px;
       left: 50%;
-      transform: translate(-50%, -50%);
-      background: white;
-      padding: 20px;
-      border-radius: 10px;
-      display: none;
-      z-index: 10;
+      transform: translateX(-50%);
+      font-size: 40px;
+      font-family: Arial, sans-serif;
+      color: white;
+      z-index: 3;
+      text-shadow: 2px 2px 2px black;
     }
     #leaderboardBtn {
       position: absolute;
       top: 10px;
       left: 10px;
+      width: 40px;
+      height: 40px;
       background: white;
-      padding: 8px 12px;
       border-radius: 8px;
-      font-size: 16px;
+      border: 2px solid black;
+      z-index: 4;
       cursor: pointer;
-      z-index: 5;
+    }
+    #startScreen, #gameOverScreen, #fadeOverlay, #tapText {
+      position: absolute;
+      z-index: 2;
+    }
+    #startScreen {
+      top: 0; width: 100%; height: 100%;
+      background: rgba(255,255,255,0);
+      display: flex; flex-direction: column;
+      justify-content: flex-end; align-items: center;
+    }
+    #startButton {
+      margin-bottom: 50px; padding: 15px 30px;
+      font-size: 20px; cursor: pointer;
+    }
+    #gameOverScreen {
+      top: 100%; left: 50%;
+      transform: translateX(-50%);
+      display: flex; flex-direction: column;
+      align-items: center;
+      transition: top 0.8s ease-out;
+    }
+    #gameOverScreen.show { top: 30%; }
+    #gameOverText {
+      width: 300px;
+      animation: bounce 1s infinite alternate;
+      display: none;
+    }
+    #gameOverScreen.show #gameOverText { display: block; }
+    #gameOverInfo {
+      font-size: 24px; font-family: Arial, sans-serif;
+      color: white; text-align: center; margin-top: 20px;
+      text-shadow: 2px 2px 2px black;
+    }
+    #restartButton {
+      margin-top: 20px; padding: 10px 20px;
+      font-size: 18px; cursor: pointer;
+    }
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-20px); }
+    }
+    #fadeOverlay {
+      width: 100%; height: 100%; top: 0; left: 0;
+      background: black; opacity: 0;
+      pointer-events: none; transition: opacity 1s ease-in-out;
+    }
+    #tapText {
+      bottom: 40px; left: 50%;
+      transform: translateX(-50%);
+      font-size: 32px; color: white;
+      font-family: Arial, sans-serif;
+      text-shadow: 2px 2px 2px black;
     }
   </style>
-</head>
-<body>
-  <canvas id="gameCanvas"></canvas>
-  <div id="nameInput">
-    <p>New High Score! Enter your name:</p>
-    <input type="text" id="playerName" maxlength="12">
-    <button onclick="submitScore()">Submit</button>
-  </div>
-  <button id="leaderboardBtn" onclick="window.location.href='leaderboard.html'">Leaderboard</button>
-
-  <!-- Firebase -->
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<div id="scoreDisplay">0</div>
+<div id="leaderboardBtn" title="Leaderboard"></div>
+<div id="startScreen"><button id="startButton">Start Game</button></div>
+<div id="gameOverScreen">
+  <img id="gameOverText" src="PngItem_2298909.png" alt="Game Over" />
+  <div id="gameOverInfo"></div>
+  <button id="restartButton">Restart</button>
+</div>
+<div id="fadeOverlay"></div>
+<div id="tapText" style="display: none;">Tap to Flap</div>
+<audio id="deathSound" src="traimory-hit-low-gun-shot-cinematic-trailer-sound-effects-161154.mp3"></audio>
+<audio id="scoreSound1" src="coin-recieved-230517.mp3"></audio>
+<audio id="scoreSound2" src="coin-257878.mp3"></audio>
+<audio id="flapSound" src="flappy_whoosh-43099.mp3"></audio>
 
-  <!-- Sounds -->
-  <audio id="flapSound" src="flappy_whoosh-43099.mp3"></audio>
-  <audio id="scoreSound1" src="coin-recieved-230517.mp3"></audio>
-  <audio id="scoreSound2" src="coin-257878.mp3"></audio>
-  <audio id="hitSound" src="traimory-hit-low-gun-shot-cinematic-trailer-sound-effects-161154.mp3"></audio>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+let width = window.innerWidth;
+let height = window.innerHeight;
+canvas.width = width;
+canvas.height = height;
 
-  <script>
-    // Replace with your actual Firebase config
-    const firebaseConfig = {
-      apiKey: "AIzaSyA...",
-      authDomain: "your-project-id.firebaseapp.com",
-      databaseURL: "https://your-project-id-default-rtdb.firebaseio.com",
-      projectId: "your-project-id",
-      storageBucket: "your-project-id.appspot.com",
-      messagingSenderId: "1234567890",
-      appId: "1:1234567890:web:abcdef123456"
-    };
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+const GRAVITY = 0.5, FLAP = -10, PIPE_WIDTH = 80, PIPE_GAP = 200, PIPE_SPACING = 150, BIRD_SIZE = 48;
+let birdY = height / 2, birdVelocity = 0, birdAngle = 0, pipes = [], frame = 0, gameOver = false, realGameStarted = false, waitingForFirstInput = true, score = 0;
+let highScore = parseInt(localStorage.getItem("highScore")) || 0;
+let useFirstScoreSound = true;
 
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
+const birdImg = new Image(); birdImg.src = "IMG_1460.png";
+const bgImg = new Image(); bgImg.src = "FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png";
+const deathSound = document.getElementById("deathSound");
+const scoreSound1 = document.getElementById("scoreSound1");
+const scoreSound2 = document.getElementById("scoreSound2");
+const flapSound = document.getElementById("flapSound");
 
-    let width = window.innerWidth;
-    let height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
-
-    const bg = new Image(); bg.src = 'background.png';
-    const birdImg = new Image(); birdImg.src = 'IMG_1460.png';
-    const pipeImg = new Image(); pipeImg.src = 'FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png';
-
-    let bird = { x: 80, y: height / 2, vy: 0, rotation: 0 };
-    let pipes = [], score = 0, gameStarted = false, gameOver = false;
-    let gravity = 0.5, jumpStrength = -8, pipeSpeed = 2.5;
-    let flapCooldown = 0, showPassword = !localStorage.getItem("passed");
-    let showGameOverY = -200, targetGameOverY = height / 2 - 100;
-    let passcode = "caprocz", inputCode = "";
-
-    function drawBird() {
-      ctx.save();
-      ctx.translate(bird.x, bird.y);
-      ctx.rotate(bird.rotation);
-      ctx.drawImage(birdImg, -birdImg.width / 2, -birdImg.height / 2);
-      ctx.restore();
-    }
-
-    function drawPipes() {
-      for (let p of pipes) {
-        ctx.drawImage(pipeImg, p.x, p.y, p.width, p.height);
-      }
-    }
-
-    function drawBackground() {
-      ctx.drawImage(bg, 0, 0, width, height);
-    }
-
-    function drawScore() {
-      ctx.fillStyle = "white";
-      ctx.font = "40px Arial";
-      ctx.fillText(score, width / 2, 50);
-    }
-
-    function drawGameOver() {
-      ctx.fillStyle = "rgba(0,0,0,0.6)";
-      ctx.fillRect(width / 2 - 150, showGameOverY, 300, 200);
-      ctx.fillStyle = "white";
-      ctx.font = "30px Arial";
-      ctx.fillText("Game Over", width / 2 - 80, showGameOverY + 50);
-      ctx.font = "20px Arial";
-      ctx.fillText("Tap to Restart", width / 2 - 70, showGameOverY + 100);
-    }
-
-    function spawnPipe() {
-      let gap = 200;
-      let topHeight = Math.random() * (height - gap - 200) + 50;
-      pipes.push({ x: width, y: 0, width: 60, height: topHeight });
-      pipes.push({ x: width, y: topHeight + gap, width: 60, height: height - topHeight - gap });
-    }
-
-    function resetGame() {
-      bird.y = height / 2;
-      bird.vy = 0;
-      pipes = [];
-      score = 0;
-      gameOver = false;
-      gameStarted = false;
-      showGameOverY = -200;
-    }
-
-    function flap() {
-      bird.vy = jumpStrength;
-      document.getElementById("flapSound").play();
-    }
-
-    function animate() {
-      ctx.clearRect(0, 0, width, height);
-      drawBackground();
-
-      if (!gameStarted && !showPassword) {
-        bird.vy += 0.3;
-        bird.y += bird.vy;
-        if (bird.y >= height / 2) bird.vy = -6;
-        drawBird();
-        ctx.fillStyle = "white";
-        ctx.font = "30px Arial";
-        ctx.fillText("Tap to Start", width / 2 - 80, height / 2 + 150);
-      } else if (gameStarted) {
-        bird.vy += gravity;
-        bird.y += bird.vy;
-        bird.rotation = Math.min(Math.PI / 4, bird.vy / 10);
-
-        if (--flapCooldown <= 0 && pipes.length === 0) {
-          flap();
-          flapCooldown = 30;
+function drawBackground() { ctx.drawImage(bgImg, 0, 0, width, height); }
+function drawBird() {
+  ctx.save();
+  ctx.translate(width / 3 + BIRD_SIZE / 2, birdY + BIRD_SIZE / 2);
+  if (!waitingForFirstInput) ctx.rotate(birdAngle * Math.PI / 180);
+  ctx.drawImage(birdImg, -BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
+  ctx.restore();
+}
+function drawPipe(pipe) {
+  ctx.fillStyle = "#00FF00";
+  ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.top);
+  ctx.fillRect(pipe.x, pipe.bottom, PIPE_WIDTH, height - pipe.bottom);
+}
+function addPipe() {
+  const top = Math.random() * (height - PIPE_GAP - 200) + 100;
+  pipes.push({ x: width, top, bottom: top + PIPE_GAP, passed: false });
+}
+function update() {
+  if (!gameOver) {
+    if (waitingForFirstInput) {
+      document.getElementById("tapText").style.display = "block";
+      if (pipes.length === 0) addPipe();
+      const nextPipe = pipes.find(p => p.x + PIPE_WIDTH > width / 3) || pipes[0];
+      const targetMid = (nextPipe.top + nextPipe.bottom) / 2;
+      const flapZoneTop = targetMid - 30, flapZoneBottom = targetMid + 30;
+      birdVelocity += GRAVITY; birdY += birdVelocity;
+      if (birdY < nextPipe.top) { birdY = nextPipe.top; birdVelocity = 0; }
+      if (birdY + BIRD_SIZE > flapZoneBottom) birdVelocity = FLAP;
+    } else {
+      document.getElementById("tapText").style.display = "none";
+      birdVelocity += GRAVITY;
+      if (realGameStarted && frame % PIPE_SPACING === 0) addPipe();
+      pipes.forEach(pipe => {
+        pipe.x -= 3;
+        if (!pipe.passed && width / 3 > pipe.x + PIPE_WIDTH / 2) {
+          pipe.passed = true; score++;
         }
-
-        for (let p of pipes) p.x -= pipeSpeed;
-        pipes = pipes.filter(p => p.x + p.width > 0);
-
-        if (pipes.length === 0 || pipes[pipes.length - 1].x < width - 200) spawnPipe();
-        drawPipes();
-
-        for (let p of pipes) {
-          if (bird.x + 20 > p.x && bird.x - 20 < p.x + p.width && bird.y + 20 > p.y && bird.y - 20 < p.y + p.height) {
-            if (!gameOver) document.getElementById("hitSound").play();
-            gameOver = true;
-          }
-        }
-
-        if (!gameOver) {
-          for (let i = 0; i < pipes.length; i += 2) {
-            if (!pipes[i].passed && pipes[i].x + pipes[i].width < bird.x) {
-              score++;
-              pipes[i].passed = true;
-              (score % 2 === 0 ? scoreSound1 : scoreSound2).play();
-            }
-          }
-        }
-
-        drawBird();
-        drawScore();
-
-        if (bird.y > height || bird.y < 0) gameOver = true;
-      }
-
-      if (gameOver) {
-        showGameOverY += (targetGameOverY - showGameOverY) * 0.1;
-        drawGameOver();
-        if (!submitted && isTopScore(score)) {
-          document.getElementById("nameInput").style.display = "block";
-          submitted = true;
-        }
-      }
-
-      requestAnimationFrame(animate);
-    }
-
-    function isTopScore(newScore) {
-      return db.ref("leaderboard").once("value").then(snap => {
-        let scores = [];
-        snap.forEach(c => scores.push(c.val()));
-        scores.sort((a, b) => b.score - a.score);
-        return scores.length < 10 || newScore > scores[scores.length - 1].score;
       });
-    }
-
-    let submitted = false;
-    function submitScore() {
-      const name = document.getElementById("playerName").value.trim().slice(0, 12);
-      if (!name) return;
-
-      db.ref("leaderboard").push({ name, score });
-      document.getElementById("nameInput").style.display = "none";
-    }
-
-    canvas.addEventListener("click", () => {
-      if (showPassword) return;
-
-      if (!gameStarted) {
-        gameStarted = true;
-        bird.vy = -8;
-        pipes = [];
-      } else if (gameOver) {
-        resetGame();
-      } else {
-        flap();
+      if (parseInt(document.getElementById("scoreDisplay").innerText) !== score) {
+        document.getElementById("scoreDisplay").innerText = score;
+        (useFirstScoreSound ? scoreSound1 : scoreSound2).play();
+        useFirstScoreSound = !useFirstScoreSound;
       }
-    });
-
-    function handlePassword(e) {
-      if (!showPassword) return;
-      inputCode += e.key;
-      if (inputCode.length > 7) inputCode = inputCode.slice(-7);
-      if (inputCode.toLowerCase() === passcode) {
-        localStorage.setItem("passed", "1");
-        showPassword = false;
-      }
+      pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
+      pipes.forEach(pipe => {
+        const birdBoxX = width / 3, birdTop = birdY, birdBottom = birdY + BIRD_SIZE;
+        if (birdBoxX + BIRD_SIZE > pipe.x && birdBoxX < pipe.x + PIPE_WIDTH &&
+           (birdTop < pipe.top || birdBottom > pipe.bottom)) triggerGameOver();
+      });
+      if (birdY > height || birdY < 0) triggerGameOver();
+      birdY += birdVelocity;
+      if (!waitingForFirstInput) birdAngle = birdVelocity < 0 ? -20 : Math.min(birdAngle + 2, 90);
     }
-
-    window.addEventListener("keydown", handlePassword);
-    animate();
-  </script>
+  } else {
+    birdVelocity += GRAVITY; birdY += birdVelocity; birdAngle += 6;
+  }
+}
+function draw() {
+  drawBackground(); pipes.forEach(drawPipe); drawBird();
+}
+function gameLoop() {
+  update(); draw(); frame++;
+  requestAnimationFrame(gameLoop);
+}
+function startRealGame() {
+  realGameStarted = true;
+  waitingForFirstInput = true;
+  pipes = []; birdY = height / 2; birdVelocity = 0; birdAngle = 0;
+  frame = 0; score = 0; gameOver = false;
+  document.getElementById("scoreDisplay").innerText = "0";
+  document.getElementById("startScreen").style.display = "none";
+  document.getElementById("gameOverScreen").classList.remove("show");
+  document.getElementById("fadeOverlay").style.opacity = 0;
+}
+function triggerGameOver() {
+  if (!gameOver) {
+    birdVelocity = FLAP; birdAngle = 0;
+    gameOver = true;
+    deathSound.play();
+    setTimeout(() => {
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("highScore", highScore);
+      }
+      document.getElementById("gameOverInfo").innerHTML = `High Score: ${highScore}<br>Score: ${score}`;
+      document.getElementById("gameOverScreen").classList.add("show");
+      maybeSubmitToLeaderboard(score);
+    }, 1000);
+  }
+}
+function restartGame() {
+  document.getElementById("fadeOverlay").style.opacity = 1;
+  setTimeout(() => startRealGame(), 1000);
+}
+document.getElementById("startButton").addEventListener("click", startRealGame);
+document.getElementById("restartButton").addEventListener("click", restartGame);
+document.getElementById("leaderboardBtn").addEventListener("click", () => {
+  window.location.href = "leaderboard.html";
+});
+function handleFirstFlap() {
+  if (realGameStarted && !gameOver) {
+    if (waitingForFirstInput) waitingForFirstInput = false;
+    birdVelocity = FLAP; flapSound.play();
+  }
+}
+document.addEventListener("keydown", handleFirstFlap);
+canvas.addEventListener("touchstart", e => { e.preventDefault(); handleFirstFlap(); }, { passive: false });
+window.addEventListener("resize", () => {
+  width = window.innerWidth;
+  height = window.innerHeight;
+  canvas.width = width;
+  canvas.height = height;
+});
+async function maybeSubmitToLeaderboard(score) {
+  const snapshot = await db.ref("leaderboard").orderByChild("score").limitToLast(10).once("value");
+  const scores = [];
+  snapshot.forEach(child => scores.push(child.val()));
+  scores.sort((a, b) => b.score - a.score);
+  if (scores.length < 10 || score > scores[9].score) {
+    const name = prompt("Top 10! Enter your name:");
+    if (name) {
+      await db.ref("leaderboard").push({ name: name.substring(0, 15), score });
+    }
+  }
+}
+gameLoop();
+</script>
 </body>
 </html>
