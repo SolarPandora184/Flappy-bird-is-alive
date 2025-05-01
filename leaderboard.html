@@ -1,79 +1,83 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Leaderboard</title>
+  <title>Flappy Bird Leaderboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
-      font-family: sans-serif;
-      background: black;
+      font-family: Arial, sans-serif;
+      background: #70c5ce;
+      margin: 0;
+      padding: 0;
       color: white;
-      padding: 20px;
-    }
-    h1 {
       text-align: center;
     }
-    ul {
-      list-style: none;
-      padding: 0;
-      max-width: 400px;
-      margin: 0 auto;
+    h1 {
+      margin-top: 20px;
     }
-    li {
-      background: #222;
-      margin: 5px 0;
-      padding: 10px;
-      border-radius: 5px;
+    table {
+      margin: 20px auto;
+      border-collapse: collapse;
+      width: 90%;
+      max-width: 400px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px;
       font-size: 18px;
     }
+    th {
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+    tr:nth-child(even) {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
     a {
-      display: block;
-      margin: 20px auto;
-      width: max-content;
-      padding: 8px 14px;
-      background: white;
-      color: black;
-      text-decoration: none;
-      border-radius: 5px;
+      color: white;
+      text-decoration: underline;
+      display: inline-block;
+      margin-top: 20px;
     }
   </style>
 </head>
 <body>
-  <h1>Top Scores</h1>
-  <ul id="leaderboard"></ul>
-  <a href="index.html">Back to Game</a>
+  <h1>Leaderboard</h1>
+  <table>
+    <thead>
+      <tr><th>Rank</th><th>Name</th><th>Score</th></tr>
+    </thead>
+    <tbody id="leaderboardBody"></tbody>
+  </table>
+  <a href="index.html">← Back to Game</a>
 
-  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script>
     const firebaseConfig = {
-      apiKey: "AIzaSyDtbNUO10AIsoEmqjF7...",
-      authDomain: "leaderboard-b2da0.firebaseapp.com",
-      projectId: "leaderboard-b2da0",
-      storageBucket: "leaderboard-b2da0.appspot.com",
-      messagingSenderId: "263059182433",
-      appId: "1:263059182433:web:325402c0..."
+      apiKey: "AIzaSyA...",
+      authDomain: "your-project-id.firebaseapp.com",
+      databaseURL: "https://your-project-id-default-rtdb.firebaseio.com",
+      projectId: "your-project-id",
+      storageBucket: "your-project-id.appspot.com",
+      messagingSenderId: "1234567890",
+      appId: "1:1234567890:web:abcdef123456"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    async function loadLeaderboard() {
-      const scoresRef = db.ref('scores');
-      const snapshot = await scoresRef.orderByChild('score').limitToLast(10).once('value');
-      const scores = [];
+    db.ref("leaderboard").once("value").then(snapshot => {
+      let scores = [];
       snapshot.forEach(child => scores.push(child.val()));
       scores.sort((a, b) => b.score - a.score);
-
-      const list = document.getElementById('leaderboard');
-      list.innerHTML = '';
-      for (let s of scores) {
-        const li = document.createElement('li');
-        li.textContent = `${s.name}: ${s.score}`;
-        list.appendChild(li);
-      }
-    }
-
-    loadLeaderboard();
+      const tbody = document.getElementById("leaderboardBody");
+      scores.slice(0, 10).forEach((entry, index) => {
+        const row = `<tr><td>${index + 1}</td><td>${entry.name}</td><td>${entry.score}</td></tr>`;
+        tbody.innerHTML += row;
+      });
+    });
   </script>
 </body>
 </html>
