@@ -2,182 +2,185 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Flappy Bird</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flappy Bird Clone</title>
   <style>
     html, body {
       margin: 0;
       overflow: hidden;
-      background: black;
+      background: #000;
     }
     canvas {
       display: block;
+      margin: 0 auto;
+      background: #70c5ce;
     }
-    #leaderboard-button {
+    #leaderboardBtn {
       position: absolute;
       top: 10px;
       left: 10px;
       z-index: 10;
-      background: white;
       padding: 6px 10px;
-      font-size: 14px;
-      font-weight: bold;
-      border: none;
+      background: white;
       border-radius: 4px;
       cursor: pointer;
+      font-weight: bold;
+    }
+    #leaderboardModal {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      border: 2px solid #333;
+      padding: 20px;
+      z-index: 20;
+      text-align: center;
+    }
+    #leaderboardModal ul {
+      list-style: none;
+      padding: 0;
+      margin: 10px 0;
+    }
+    #leaderboardModal li {
+      margin: 4px 0;
+    }
+    #leaderboardModal button {
+      margin-top: 10px;
+      padding: 4px 8px;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <button id="leaderboard-button">Leaderboard</button>
-  <canvas id="gameCanvas"></canvas>
+  <button id="leaderboardBtn">Leaderboard</button>
+  <div id="leaderboardModal"></div>
+  <canvas id="game"></canvas>
 
-  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.11.0/firebase-database-compat.js"></script>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
   <script>
     const firebaseConfig = {
-      apiKey: "AIzaSyDtbNUO10AIsoEmqjF7...",
+      apiKey: "AIzaSyDtbNUO10AIsoEmqjqF7lJ9r3UoXJLgJgk",
       authDomain: "leaderboard-b2da0.firebaseapp.com",
       projectId: "leaderboard-b2da0",
       storageBucket: "leaderboard-b2da0.appspot.com",
       messagingSenderId: "263059182433",
-      appId: "1:263059182433:web:325402c0..."
+      appId: "1:263059182433:web:325402cbeed0b0a7a250bd"
     };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    async function submitScore(name, score) {
+      await db.collection("scores").add({ name, score, time: Date.now() });
+    }
+
+    async function getTopScores(limit = 10) {
+      const snapshot = await db.collection("scores")
+        .orderBy("score", "desc")
+        .limit(limit)
+        .get();
+      return snapshot.docs.map(doc => doc.data());
+    }
+
+    async function maybeAddToLeaderboard(score) {
+      const top = await getTopScores();
+      if (top.length < 10 || score > top[top.length - 1].score) {
+        const name = prompt("New High Score! Enter your name:");
+        if (name) await submitScore(name, score);
+      }
+    }
+
+    document.getElementById("leaderboardBtn").onclick = async () => {
+      const modal = document.getElementById("leaderboardModal");
+      modal.innerHTML = "<p>Loading...</p>";
+      modal.style.display = 'block';
+
+      const scores = await getTopScores();
+      modal.innerHTML = `<h3>Leaderboard</h3>
+        <ul>${scores.map(s => `<li>${s.name}: ${s.score}</li>`).join("")}</ul>
+        <button onclick='document.getElementById("leaderboardModal").style.display="none"'>Close</button>`;
+    }
   </script>
 
   <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    let width = window.innerWidth;
-    let height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
-    let bird = { x: 50, y: 100, vy: 0 };
-    let gravity = 0.5;
-    let flap = -10;
-    let pipes = [];
-    let score = 0;
-    let gameStarted = false;
-    let gameOver = false;
-    let bestScore = 0;
+    let bird = { x: 100, y: 200, vy: 0 };
+    let pipes = [], score = 0, gameOver = false;
 
-    function resetGame() {
-      bird.y = 100;
+    function reset() {
+      bird.y = 200;
       bird.vy = 0;
       pipes = [];
       score = 0;
       gameOver = false;
     }
 
-    function addPipe() {
-      let gap = 200;
-      let top = Math.random() * (height - gap - 100);
-      pipes.push({ x: width, top });
+    function flap() {
+      if (!gameOver) bird.vy = -8;
+      else {
+        maybeAddToLeaderboard(score);
+        reset();
+      }
     }
 
-    function update() {
-      if (!gameStarted || gameOver) return;
-      bird.vy += gravity;
+    window.addEventListener("click", flap);
+
+    function spawnPipe() {
+      let gap = 150;
+      let top = Math.random() * (canvas.height - gap - 100) + 50;
+      pipes.push({ x: canvas.width, top });
+    }
+
+    setInterval(spawnPipe, 1500);
+
+    function loop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      bird.vy += 0.5;
       bird.y += bird.vy;
-
-      for (let pipe of pipes) {
-        pipe.x -= 3;
-        if (pipe.x + 50 < 0) pipes.shift();
-        if (pipe.x === bird.x) {
-          score++;
-        }
-
-        if (
-          bird.x < pipe.x + 50 &&
-          bird.x + 30 > pipe.x &&
-          (bird.y < pipe.top || bird.y > pipe.top + 200)
-        ) {
-          gameOver = true;
-          checkLeaderboard();
-        }
-      }
-
-      if (bird.y > height || bird.y < 0) {
-        gameOver = true;
-        checkLeaderboard();
-      }
-
-      if (pipes.length === 0 || pipes[pipes.length - 1].x < width - 300) {
-        addPipe();
-      }
-    }
-
-    function draw() {
-      ctx.fillStyle = "skyblue";
-      ctx.fillRect(0, 0, width, height);
-
-      ctx.fillStyle = "green";
-      for (let pipe of pipes) {
-        ctx.fillRect(pipe.x, 0, 50, pipe.top);
-        ctx.fillRect(pipe.x, pipe.top + 200, 50, height);
-      }
 
       ctx.fillStyle = "yellow";
       ctx.beginPath();
-      ctx.arc(bird.x, bird.y, 15, 0, Math.PI * 2);
+      ctx.arc(bird.x, bird.y, 20, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = "black";
-      ctx.font = "30px Arial";
-      ctx.fillText("Score: " + score, 10, 40);
+      ctx.fillStyle = "green";
+      pipes.forEach(p => {
+        p.x -= 4;
+        ctx.fillRect(p.x, 0, 50, p.top);
+        ctx.fillRect(p.x, p.top + 150, 50, canvas.height);
 
-      if (!gameStarted) {
-        ctx.fillText("Tap to Start", width / 2 - 100, height / 2);
-      }
+        if (!gameOver && p.x < bird.x && !p.passed) {
+          score++;
+          p.passed = true;
+        }
+
+        if (!gameOver &&
+            bird.x + 20 > p.x && bird.x - 20 < p.x + 50 &&
+            (bird.y - 20 < p.top || bird.y + 20 > p.top + 150)) {
+          gameOver = true;
+        }
+      });
+
+      if (bird.y > canvas.height || bird.y < 0) gameOver = true;
+
+      ctx.fillStyle = "white";
+      ctx.font = "30px Arial";
+      ctx.fillText("Score: " + score, 20, 40);
 
       if (gameOver) {
-        ctx.fillText("Game Over", width / 2 - 80, height / 2);
+        ctx.fillText("Game Over - Tap to Restart", 100, 100);
       }
+
+      requestAnimationFrame(loop);
     }
-
-    function gameLoop() {
-      update();
-      draw();
-      requestAnimationFrame(gameLoop);
-    }
-
-    canvas.addEventListener('click', () => {
-      if (!gameStarted) {
-        gameStarted = true;
-        resetGame();
-      } else if (!gameOver) {
-        bird.vy = flap;
-      } else {
-        gameStarted = false;
-        resetGame();
-      }
-    });
-
-    gameLoop();
-
-    async function checkLeaderboard() {
-      const scoresRef = db.ref('scores');
-      const snapshot = await scoresRef.orderByChild('score').limitToLast(10).once('value');
-      const scores = [];
-      snapshot.forEach(child => scores.push(child.val()));
-      scores.sort((a, b) => b.score - a.score);
-
-      const lowestTopScore = scores.length < 10 ? 0 : scores[9].score;
-
-      if (score > lowestTopScore) {
-        const name = prompt("Top 10! Enter your name:");
-        if (name) {
-          scoresRef.push({ name, score });
-        }
-      }
-    }
-
-    document.getElementById('leaderboard-button').addEventListener('click', () => {
-      window.location.href = 'leaderboard.html';
-    });
+    loop();
   </script>
 </body>
 </html>
