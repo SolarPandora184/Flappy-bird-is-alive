@@ -1,5 +1,3 @@
-<!-- The entire HTML code remains the same except for a small script addition -->
-<!-- Full code with hitbox toggle on Page Down -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -86,9 +84,6 @@
       text-shadow: 2px 2px 2px black;
     }
   </style>
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
 <canvas id="gameCanvas"></canvas>
@@ -115,23 +110,11 @@ let height = window.innerHeight;
 canvas.width = width;
 canvas.height = height;
 
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT.firebaseio.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-
 const GRAVITY = 0.5, FLAP = -10, PIPE_WIDTH = 80, PIPE_GAP = 200, PIPE_SPACING = 150, BIRD_SIZE = 48;
 let birdY = height / 2, birdVelocity = 0, birdAngle = 0, pipes = [], frame = 0, gameOver = false, realGameStarted = false, waitingForFirstInput = true, score = 0;
 let highScore = parseInt(localStorage.getItem("highScore")) || 0;
 let useFirstScoreSound = true;
-let showHitboxes = false; // Toggle hitbox visibility
+let showHitboxes = false;
 
 const birdImg = new Image(); birdImg.src = "IMG_1460.png";
 const bgImg = new Image(); bgImg.src = "FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png";
@@ -146,20 +129,18 @@ function drawBird() {
   ctx.translate(width / 3 + BIRD_SIZE / 2, birdY + BIRD_SIZE / 2);
   if (!waitingForFirstInput) ctx.rotate(birdAngle * Math.PI / 180);
   ctx.drawImage(birdImg, -BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
-  ctx.restore();
-
   if (showHitboxes) {
-    ctx.strokeStyle = 'red';
-    ctx.strokeRect(width / 3, birdY, BIRD_SIZE, BIRD_SIZE);
+    ctx.strokeStyle = "red";
+    ctx.strokeRect(-BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
   }
+  ctx.restore();
 }
 function drawPipe(pipe) {
   ctx.fillStyle = "#00FF00";
   ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.top);
   ctx.fillRect(pipe.x, pipe.bottom, PIPE_WIDTH, height - pipe.bottom);
-
   if (showHitboxes) {
-    ctx.strokeStyle = 'yellow';
+    ctx.strokeStyle = "blue";
     ctx.strokeRect(pipe.x, 0, PIPE_WIDTH, pipe.top);
     ctx.strokeRect(pipe.x, pipe.bottom, PIPE_WIDTH, height - pipe.bottom);
   }
@@ -186,7 +167,28 @@ function update() {
       pipes.forEach(pipe => {
         pipe.x -= 3;
         if (!pipe.passed && width / 3 > pipe.x + PIPE_WIDTH / 2) {
-          pipe.passed = true; score++;
+          pipe.passed = true;
+          score++;
+          if (showHitboxes) {
+            const flash = document.createElement("div");
+            flash.innerText = "+1";
+            flash.style.position = "absolute";
+            flash.style.left = "50%";
+            flash.style.top = "70px";
+            flash.style.transform = "translateX(-50%)";
+            flash.style.fontSize = "24px";
+            flash.style.fontFamily = "Arial, sans-serif";
+            flash.style.color = "lime";
+            flash.style.zIndex = 10;
+            flash.style.opacity = 1;
+            flash.style.transition = "opacity 0.5s ease-out, transform 0.5s ease-out";
+            document.body.appendChild(flash);
+            setTimeout(() => {
+              flash.style.opacity = 0;
+              flash.style.transform = "translateX(-50%) translateY(-20px)";
+              setTimeout(() => document.body.removeChild(flash), 500);
+            }, 50);
+          }
         }
       });
       if (parseInt(document.getElementById("scoreDisplay").innerText) !== score) {
@@ -237,7 +239,6 @@ function triggerGameOver() {
       }
       document.getElementById("gameOverInfo").innerHTML = `High Score: ${highScore}<br>Score: ${score}`;
       document.getElementById("gameOverScreen").classList.add("show");
-      maybeSubmitToLeaderboard(score);
     }, 1000);
   }
 }
@@ -256,7 +257,10 @@ function handleFirstFlap() {
     birdVelocity = FLAP; flapSound.play();
   }
 }
-document.addEventListener("keydown", handleFirstFlap);
+document.addEventListener("keydown", (e) => {
+  if (e.code === "PageDown") showHitboxes = !showHitboxes;
+  else handleFirstFlap();
+});
 canvas.addEventListener("touchstart", e => { e.preventDefault(); handleFirstFlap(); }, { passive: false });
 window.addEventListener("resize", () => {
   width = window.innerWidth;
@@ -264,30 +268,6 @@ window.addEventListener("resize", () => {
   canvas.width = width;
   canvas.height = height;
 });
-async function maybeSubmitToLeaderboard(score) {
-  const snapshot = await db.ref("leaderboard").orderByChild("score").limitToLast(10).once("value");
-  const scores = [];
-  snapshot.forEach(child => scores.push(child.val()));
-  scores.sort((a, b) => b.score - a.score);
-  if (scores.length < 10 || score > scores[9].score) {
-    const name = prompt("Top 10! Enter your name:");
-    if (name) {
-      await db.ref("leaderboard").push({ name: name.substring(0, 15), score });
-    }
-  }
-}
-
-// Page Up resets password entry
-document.addEventListener("keydown", (e) => {
-  if (e.code === "PageUp") {
-    localStorage.removeItem("passwordEntered");
-    alert("Password requirement has been reset. Reload to see it.");
-  }
-  if (e.code === "PageDown") {
-    showHitboxes = !showHitboxes;
-  }
-});
-
 gameLoop();
 </script>
 </body>
