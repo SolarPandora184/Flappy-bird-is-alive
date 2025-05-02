@@ -1,3 +1,5 @@
+<!-- The entire HTML code remains the same except for a small script addition -->
+<!-- Full code with hitbox toggle on Page Down -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -129,6 +131,7 @@ const GRAVITY = 0.5, FLAP = -10, PIPE_WIDTH = 80, PIPE_GAP = 200, PIPE_SPACING =
 let birdY = height / 2, birdVelocity = 0, birdAngle = 0, pipes = [], frame = 0, gameOver = false, realGameStarted = false, waitingForFirstInput = true, score = 0;
 let highScore = parseInt(localStorage.getItem("highScore")) || 0;
 let useFirstScoreSound = true;
+let showHitboxes = false; // Toggle hitbox visibility
 
 const birdImg = new Image(); birdImg.src = "IMG_1460.png";
 const bgImg = new Image(); bgImg.src = "FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png";
@@ -144,11 +147,22 @@ function drawBird() {
   if (!waitingForFirstInput) ctx.rotate(birdAngle * Math.PI / 180);
   ctx.drawImage(birdImg, -BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
   ctx.restore();
+
+  if (showHitboxes) {
+    ctx.strokeStyle = 'red';
+    ctx.strokeRect(width / 3, birdY, BIRD_SIZE, BIRD_SIZE);
+  }
 }
 function drawPipe(pipe) {
   ctx.fillStyle = "#00FF00";
   ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.top);
   ctx.fillRect(pipe.x, pipe.bottom, PIPE_WIDTH, height - pipe.bottom);
+
+  if (showHitboxes) {
+    ctx.strokeStyle = 'yellow';
+    ctx.strokeRect(pipe.x, 0, PIPE_WIDTH, pipe.top);
+    ctx.strokeRect(pipe.x, pipe.bottom, PIPE_WIDTH, height - pipe.bottom);
+  }
 }
 function addPipe() {
   const top = Math.random() * (height - PIPE_GAP - 200) + 100;
@@ -263,11 +277,14 @@ async function maybeSubmitToLeaderboard(score) {
   }
 }
 
-// Add this: Page Up key resets password entry
+// Page Up resets password entry
 document.addEventListener("keydown", (e) => {
   if (e.code === "PageUp") {
     localStorage.removeItem("passwordEntered");
     alert("Password requirement has been reset. Reload to see it.");
+  }
+  if (e.code === "PageDown") {
+    showHitboxes = !showHitboxes;
   }
 });
 
