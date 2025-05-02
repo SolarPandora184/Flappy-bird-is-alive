@@ -1,3 +1,6 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Flappy Bird Clone</title>
@@ -259,6 +262,15 @@ async function maybeSubmitToLeaderboard(score) {
     }
   }
 }
+
+// Add this: Page Up key resets password entry
+document.addEventListener("keydown", (e) => {
+  if (e.code === "PageUp") {
+    localStorage.removeItem("passwordEntered");
+    alert("Password requirement has been reset. Reload to see it.");
+  }
+});
+
 gameLoop();
 </script>
 </body>
