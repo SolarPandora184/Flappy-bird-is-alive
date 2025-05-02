@@ -111,27 +111,34 @@ canvas.width = width;
 canvas.height = height;
 
 const GRAVITY = 0.5, FLAP = -10, PIPE_WIDTH = 80, PIPE_GAP = 200, PIPE_SPACING = 150, BIRD_SIZE = 48;
+const BIRD_HITBOX_SCALE = 0.75;
 let birdY = height / 2, birdVelocity = 0, birdAngle = 0, pipes = [], frame = 0, gameOver = false, realGameStarted = false, waitingForFirstInput = true, score = 0;
 let highScore = parseInt(localStorage.getItem("highScore")) || 0;
 let useFirstScoreSound = true;
 let showHitboxes = false;
+let pointFlash = false;
 
 const birdImg = new Image(); birdImg.src = "IMG_1460.png";
-const bgImg = new Image(); bgImg.src = "FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png";
+const bgImg = new Image(); bgImg.src = "background.png";
 const deathSound = document.getElementById("deathSound");
 const scoreSound1 = document.getElementById("scoreSound1");
 const scoreSound2 = document.getElementById("scoreSound2");
 const flapSound = document.getElementById("flapSound");
 
-function drawBackground() { ctx.drawImage(bgImg, 0, 0, width, height); }
+function drawBackground() {
+  ctx.drawImage(bgImg, 0, 0, width, height);
+}
 function drawBird() {
   ctx.save();
   ctx.translate(width / 3 + BIRD_SIZE / 2, birdY + BIRD_SIZE / 2);
   if (!waitingForFirstInput) ctx.rotate(birdAngle * Math.PI / 180);
   ctx.drawImage(birdImg, -BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
+
   if (showHitboxes) {
-    ctx.strokeStyle = "red";
-    ctx.strokeRect(-BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
+    const boxSize = BIRD_SIZE * BIRD_HITBOX_SCALE;
+    ctx.strokeStyle = pointFlash ? "yellow" : "red";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-boxSize / 2, -boxSize / 2, boxSize, boxSize);
   }
   ctx.restore();
 }
@@ -141,6 +148,7 @@ function drawPipe(pipe) {
   ctx.fillRect(pipe.x, pipe.bottom, PIPE_WIDTH, height - pipe.bottom);
   if (showHitboxes) {
     ctx.strokeStyle = "blue";
+    ctx.lineWidth = 2;
     ctx.strokeRect(pipe.x, 0, PIPE_WIDTH, pipe.top);
     ctx.strokeRect(pipe.x, pipe.bottom, PIPE_WIDTH, height - pipe.bottom);
   }
@@ -169,38 +177,27 @@ function update() {
         if (!pipe.passed && width / 3 > pipe.x + PIPE_WIDTH / 2) {
           pipe.passed = true;
           score++;
-          if (showHitboxes) {
-            const flash = document.createElement("div");
-            flash.innerText = "+1";
-            flash.style.position = "absolute";
-            flash.style.left = "50%";
-            flash.style.top = "70px";
-            flash.style.transform = "translateX(-50%)";
-            flash.style.fontSize = "24px";
-            flash.style.fontFamily = "Arial, sans-serif";
-            flash.style.color = "lime";
-            flash.style.zIndex = 10;
-            flash.style.opacity = 1;
-            flash.style.transition = "opacity 0.5s ease-out, transform 0.5s ease-out";
-            document.body.appendChild(flash);
-            setTimeout(() => {
-              flash.style.opacity = 0;
-              flash.style.transform = "translateX(-50%) translateY(-20px)";
-              setTimeout(() => document.body.removeChild(flash), 500);
-            }, 50);
-          }
+          document.getElementById("scoreDisplay").innerText = score;
+          (useFirstScoreSound ? scoreSound1 : scoreSound2).play();
+          useFirstScoreSound = !useFirstScoreSound;
+          pointFlash = true;
+          setTimeout(() => pointFlash = false, 200);
         }
       });
-      if (parseInt(document.getElementById("scoreDisplay").innerText) !== score) {
-        document.getElementById("scoreDisplay").innerText = score;
-        (useFirstScoreSound ? scoreSound1 : scoreSound2).play();
-        useFirstScoreSound = !useFirstScoreSound;
-      }
       pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
       pipes.forEach(pipe => {
-        const birdBoxX = width / 3, birdTop = birdY, birdBottom = birdY + BIRD_SIZE;
-        if (birdBoxX + BIRD_SIZE > pipe.x && birdBoxX < pipe.x + PIPE_WIDTH &&
-           (birdTop < pipe.top || birdBottom > pipe.bottom)) triggerGameOver();
+        const birdBoxX = width / 3 + (BIRD_SIZE - BIRD_SIZE * BIRD_HITBOX_SCALE) / 2;
+        const birdBoxWidth = BIRD_SIZE * BIRD_HITBOX_SCALE;
+        const birdTop = birdY + (BIRD_SIZE - birdBoxWidth) / 2;
+        const birdBottom = birdTop + birdBoxWidth;
+
+        if (
+          birdBoxX + birdBoxWidth > pipe.x &&
+          birdBoxX < pipe.x + PIPE_WIDTH &&
+          (birdTop < pipe.top || birdBottom > pipe.bottom)
+        ) {
+          triggerGameOver();
+        }
       });
       if (birdY > height || birdY < 0) triggerGameOver();
       birdY += birdVelocity;
@@ -251,14 +248,9 @@ document.getElementById("restartButton").addEventListener("click", restartGame);
 document.getElementById("leaderboardBtn").addEventListener("click", () => {
   window.location.href = "leaderboard.html";
 });
-function handleFirstFlap() {
-  if (realGameStarted && !gameOver) {
-    if (waitingForFirstInput) waitingForFirstInput = false;
-    birdVelocity = FLAP; flapSound.play();
-  }
-}
-document.addEventListener("keydown", (e) => {
+document.addEventListener("keydown", e => {
   if (e.code === "PageDown") showHitboxes = !showHitboxes;
+  else if (e.code === "PageUp") localStorage.removeItem("passwordEntered");
   else handleFirstFlap();
 });
 canvas.addEventListener("touchstart", e => { e.preventDefault(); handleFirstFlap(); }, { passive: false });
@@ -268,6 +260,12 @@ window.addEventListener("resize", () => {
   canvas.width = width;
   canvas.height = height;
 });
+function handleFirstFlap() {
+  if (realGameStarted && !gameOver) {
+    if (waitingForFirstInput) waitingForFirstInput = false;
+    birdVelocity = FLAP; flapSound.play();
+  }
+}
 gameLoop();
 </script>
 </body>
