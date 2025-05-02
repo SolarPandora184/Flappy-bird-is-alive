@@ -1,44 +1,91 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Flappy Bird Clone</title>
   <style>
     html, body { margin: 0; padding: 0; overflow: hidden; background: #70c5ce; }
     canvas { display: block; }
-    #passwordScreen {
+    #scoreDisplay {
       position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.85);
-      display: flex; flex-direction: column; justify-content: center; align-items: center;
-      z-index: 9999;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 40px;
+      font-family: Arial, sans-serif;
+      color: white;
+      z-index: 3;
+      text-shadow: 2px 2px 2px black;
     }
-    #passwordInput {
-      padding: 10px;
-      font-size: 18px;
-      border-radius: 6px;
-      margin-bottom: 10px;
-      border: none;
-    }
-    #submitPassword {
-      padding: 10px 20px;
-      font-size: 16px;
+    #leaderboardBtn {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 40px;
+      height: 40px;
+      background: white;
+      border-radius: 8px;
+      border: 2px solid black;
+      z-index: 4;
       cursor: pointer;
+    }
+    #startScreen, #gameOverScreen, #fadeOverlay, #tapText {
+      position: absolute;
+      z-index: 2;
+    }
+    #startScreen {
+      top: 0; width: 100%; height: 100%;
+      background: rgba(255,255,255,0);
+      display: flex; flex-direction: column;
+      justify-content: flex-end; align-items: center;
+    }
+    #startButton {
+      margin-bottom: 50px; padding: 15px 30px;
+      font-size: 20px; cursor: pointer;
+    }
+    #gameOverScreen {
+      top: 100%; left: 50%;
+      transform: translateX(-50%);
+      display: flex; flex-direction: column;
+      align-items: center;
+      transition: top 0.8s ease-out;
+    }
+    #gameOverScreen.show { top: 30%; }
+    #gameOverText {
+      width: 300px;
+      animation: bounce 1s infinite alternate;
+      display: none;
+    }
+    #gameOverScreen.show #gameOverText { display: block; }
+    #gameOverInfo {
+      font-size: 24px; font-family: Arial, sans-serif;
+      color: white; text-align: center; margin-top: 20px;
+      text-shadow: 2px 2px 2px black;
+    }
+    #restartButton {
+      margin-top: 20px; padding: 10px 20px;
+      font-size: 18px; cursor: pointer;
+    }
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-20px); }
+    }
+    #fadeOverlay {
+      width: 100%; height: 100%; top: 0; left: 0;
+      background: black; opacity: 0;
+      pointer-events: none; transition: opacity 1s ease-in-out;
+    }
+    #tapText {
+      bottom: 40px; left: 50%;
+      transform: translateX(-50%);
+      font-size: 32px; color: white;
+      font-family: Arial, sans-serif;
+      text-shadow: 2px 2px 2px black;
     }
   </style>
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <!-- EmailJS SDK -->
-  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
 </head>
 <body>
-<div id="passwordScreen">
-  <input type="password" id="passwordInput" placeholder="Enter Password" />
-  <button id="submitPassword">Submit</button>
-</div>
-
 <canvas id="gameCanvas"></canvas>
 <div id="scoreDisplay">0</div>
 <div id="leaderboardBtn" title="Leaderboard"></div>
@@ -56,62 +103,163 @@
 <audio id="flapSound" src="flappy_whoosh-43099.mp3"></audio>
 
 <script>
-  // EmailJS Init
-  emailjs.init("mp1Krfu8n84cHYidb");
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+let width = window.innerWidth;
+let height = window.innerHeight;
+canvas.width = width;
+canvas.height = height;
 
-  // Password check
-  const passwordScreen = document.getElementById("passwordScreen");
-  const submitBtn = document.getElementById("submitPassword");
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-  if (localStorage.getItem("passwordAccepted") === "true") {
-    passwordScreen.style.display = "none";
-  }
+const GRAVITY = 0.5, FLAP = -10, PIPE_WIDTH = 80, PIPE_GAP = 200, PIPE_SPACING = 150, BIRD_SIZE = 48;
+let birdY = height / 2, birdVelocity = 0, birdAngle = 0, pipes = [], frame = 0, gameOver = false, realGameStarted = false, waitingForFirstInput = true, score = 0;
+let highScore = parseInt(localStorage.getItem("highScore")) || 0;
+let useFirstScoreSound = true;
 
-  submitBtn.addEventListener("click", () => {
-    const input = document.getElementById("passwordInput").value.trim();
-    if (input.toLowerCase() === "caprocz".toLowerCase()) {
-      localStorage.setItem("passwordAccepted", "true");
-      passwordScreen.style.display = "none";
+const birdImg = new Image(); birdImg.src = "IMG_1460.png";
+const bgImg = new Image(); bgImg.src = "FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png";
+const deathSound = document.getElementById("deathSound");
+const scoreSound1 = document.getElementById("scoreSound1");
+const scoreSound2 = document.getElementById("scoreSound2");
+const flapSound = document.getElementById("flapSound");
 
-      // Send email
-      emailjs.send("service_79vdakn", "template_dlh7kgp", {
-        message: "The password 'CapRocz' was entered."
-      }).then(() => {
-        console.log("Email sent.");
-      }).catch(err => {
-        console.error("Email failed:", err);
-      });
-
+function drawBackground() { ctx.drawImage(bgImg, 0, 0, width, height); }
+function drawBird() {
+  ctx.save();
+  ctx.translate(width / 3 + BIRD_SIZE / 2, birdY + BIRD_SIZE / 2);
+  if (!waitingForFirstInput) ctx.rotate(birdAngle * Math.PI / 180);
+  ctx.drawImage(birdImg, -BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
+  ctx.restore();
+}
+function drawPipe(pipe) {
+  ctx.fillStyle = "#00FF00";
+  ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.top);
+  ctx.fillRect(pipe.x, pipe.bottom, PIPE_WIDTH, height - pipe.bottom);
+}
+function addPipe() {
+  const top = Math.random() * (height - PIPE_GAP - 200) + 100;
+  pipes.push({ x: width, top, bottom: top + PIPE_GAP, passed: false });
+}
+function update() {
+  if (!gameOver) {
+    if (waitingForFirstInput) {
+      document.getElementById("tapText").style.display = "block";
+      if (pipes.length === 0) addPipe();
+      const nextPipe = pipes.find(p => p.x + PIPE_WIDTH > width / 3) || pipes[0];
+      const targetMid = (nextPipe.top + nextPipe.bottom) / 2;
+      const flapZoneTop = targetMid - 30, flapZoneBottom = targetMid + 30;
+      birdVelocity += GRAVITY; birdY += birdVelocity;
+      if (birdY < nextPipe.top) { birdY = nextPipe.top; birdVelocity = 0; }
+      if (birdY + BIRD_SIZE > flapZoneBottom) birdVelocity = FLAP;
     } else {
-      alert("Incorrect password.");
+      document.getElementById("tapText").style.display = "none";
+      birdVelocity += GRAVITY;
+      if (realGameStarted && frame % PIPE_SPACING === 0) addPipe();
+      pipes.forEach(pipe => {
+        pipe.x -= 3;
+        if (!pipe.passed && width / 3 > pipe.x + PIPE_WIDTH / 2) {
+          pipe.passed = true; score++;
+        }
+      });
+      if (parseInt(document.getElementById("scoreDisplay").innerText) !== score) {
+        document.getElementById("scoreDisplay").innerText = score;
+        (useFirstScoreSound ? scoreSound1 : scoreSound2).play();
+        useFirstScoreSound = !useFirstScoreSound;
+      }
+      pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
+      pipes.forEach(pipe => {
+        const birdBoxX = width / 3, birdTop = birdY, birdBottom = birdY + BIRD_SIZE;
+        if (birdBoxX + BIRD_SIZE > pipe.x && birdBoxX < pipe.x + PIPE_WIDTH &&
+           (birdTop < pipe.top || birdBottom > pipe.bottom)) triggerGameOver();
+      });
+      if (birdY > height || birdY < 0) triggerGameOver();
+      birdY += birdVelocity;
+      if (!waitingForFirstInput) birdAngle = birdVelocity < 0 ? -20 : Math.min(birdAngle + 2, 90);
     }
-  });
-
-  // --- Game code goes here (unchanged parts skipped for brevity)
-</script>
-
-<!-- Keep your existing game loop, Firebase config, update/draw/game logic below -->
-<script>
-  const canvas = document.getElementById("gameCanvas");
-  const ctx = canvas.getContext("2d");
-  let width = window.innerWidth;
-  let height = window.innerHeight;
+  } else {
+    birdVelocity += GRAVITY; birdY += birdVelocity; birdAngle += 6;
+  }
+}
+function draw() {
+  drawBackground(); pipes.forEach(drawPipe); drawBird();
+}
+function gameLoop() {
+  update(); draw(); frame++;
+  requestAnimationFrame(gameLoop);
+}
+function startRealGame() {
+  realGameStarted = true;
+  waitingForFirstInput = true;
+  pipes = []; birdY = height / 2; birdVelocity = 0; birdAngle = 0;
+  frame = 0; score = 0; gameOver = false;
+  document.getElementById("scoreDisplay").innerText = "0";
+  document.getElementById("startScreen").style.display = "none";
+  document.getElementById("gameOverScreen").classList.remove("show");
+  document.getElementById("fadeOverlay").style.opacity = 0;
+}
+function triggerGameOver() {
+  if (!gameOver) {
+    birdVelocity = FLAP; birdAngle = 0;
+    gameOver = true;
+    deathSound.play();
+    setTimeout(() => {
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("highScore", highScore);
+      }
+      document.getElementById("gameOverInfo").innerHTML = `High Score: ${highScore}<br>Score: ${score}`;
+      document.getElementById("gameOverScreen").classList.add("show");
+      maybeSubmitToLeaderboard(score);
+    }, 1000);
+  }
+}
+function restartGame() {
+  document.getElementById("fadeOverlay").style.opacity = 1;
+  setTimeout(() => startRealGame(), 1000);
+}
+document.getElementById("startButton").addEventListener("click", startRealGame);
+document.getElementById("restartButton").addEventListener("click", restartGame);
+document.getElementById("leaderboardBtn").addEventListener("click", () => {
+  window.location.href = "leaderboard.html";
+});
+function handleFirstFlap() {
+  if (realGameStarted && !gameOver) {
+    if (waitingForFirstInput) waitingForFirstInput = false;
+    birdVelocity = FLAP; flapSound.play();
+  }
+}
+document.addEventListener("keydown", handleFirstFlap);
+canvas.addEventListener("touchstart", e => { e.preventDefault(); handleFirstFlap(); }, { passive: false });
+window.addEventListener("resize", () => {
+  width = window.innerWidth;
+  height = window.innerHeight;
   canvas.width = width;
   canvas.height = height;
-
-  const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT.firebaseio.com",
-    projectId: "YOUR_PROJECT",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-
-  // Keep all your game code here (like before)...
+});
+async function maybeSubmitToLeaderboard(score) {
+  const snapshot = await db.ref("leaderboard").orderByChild("score").limitToLast(10).once("value");
+  const scores = [];
+  snapshot.forEach(child => scores.push(child.val()));
+  scores.sort((a, b) => b.score - a.score);
+  if (scores.length < 10 || score > scores[9].score) {
+    const name = prompt("Top 10! Enter your name:");
+    if (name) {
+      await db.ref("leaderboard").push({ name: name.substring(0, 15), score });
+    }
+  }
+}
+gameLoop();
 </script>
 </body>
 </html>
