@@ -3,272 +3,103 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Flappy Bird Clone</title>
+  <title>3D Zombie Shooter</title>
   <style>
-    html, body { margin: 0; padding: 0; overflow: hidden; background: #70c5ce; }
+    body { margin: 0; overflow: hidden; background: #000; }
     canvas { display: block; }
-    #scoreDisplay {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 40px;
-      font-family: Arial, sans-serif;
-      color: white;
-      z-index: 3;
-      text-shadow: 2px 2px 2px black;
-    }
-    #leaderboardBtn {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      width: 40px;
-      height: 40px;
-      background: white;
-      border-radius: 8px;
-      border: 2px solid black;
-      z-index: 4;
-      cursor: pointer;
-    }
-    #startScreen, #gameOverScreen, #fadeOverlay, #tapText {
-      position: absolute;
-      z-index: 2;
-    }
-    #startScreen {
-      top: 0; width: 100%; height: 100%;
-      background: rgba(255,255,255,0);
-      display: flex; flex-direction: column;
-      justify-content: flex-end; align-items: center;
-    }
-    #startButton {
-      margin-bottom: 50px; padding: 15px 30px;
-      font-size: 20px; cursor: pointer;
-    }
-    #gameOverScreen {
-      top: 100%; left: 50%;
-      transform: translateX(-50%);
-      display: flex; flex-direction: column;
-      align-items: center;
-      transition: top 0.8s ease-out;
-    }
-    #gameOverScreen.show { top: 30%; }
-    #gameOverText {
-      width: 300px;
-      animation: bounce 1s infinite alternate;
-      display: none;
-    }
-    #gameOverScreen.show #gameOverText { display: block; }
-    #gameOverInfo {
-      font-size: 24px; font-family: Arial, sans-serif;
-      color: white; text-align: center; margin-top: 20px;
-      text-shadow: 2px 2px 2px black;
-    }
-    #restartButton {
-      margin-top: 20px; padding: 10px 20px;
-      font-size: 18px; cursor: pointer;
-    }
-    @keyframes bounce {
-      from { transform: translateY(0); }
-      to { transform: translateY(-20px); }
-    }
-    #fadeOverlay {
-      width: 100%; height: 100%; top: 0; left: 0;
-      background: black; opacity: 0;
-      pointer-events: none; transition: opacity 1s ease-in-out;
-    }
-    #tapText {
-      bottom: 40px; left: 50%;
-      transform: translateX(-50%);
-      font-size: 32px; color: white;
-      font-family: Arial, sans-serif;
-      text-shadow: 2px 2px 2px black;
-    }
   </style>
 </head>
 <body>
-<canvas id="gameCanvas"></canvas>
-<div id="scoreDisplay">0</div>
-<div id="leaderboardBtn" title="Leaderboard"></div>
-<div id="startScreen"><button id="startButton">Start Game</button></div>
-<div id="gameOverScreen">
-  <img id="gameOverText" src="PngItem_2298909.png" alt="Game Over" />
-  <div id="gameOverInfo"></div>
-  <button id="restartButton">Restart</button>
-</div>
-<div id="fadeOverlay"></div>
-<div id="tapText" style="display: none;">Tap to Flap</div>
-<audio id="deathSound" src="traimory-hit-low-gun-shot-cinematic-trailer-sound-effects-161154.mp3"></audio>
-<audio id="scoreSound1" src="coin-recieved-230517.mp3"></audio>
-<audio id="scoreSound2" src="coin-257878.mp3"></audio>
-<audio id="flapSound" src="flappy_whoosh-43099.mp3"></audio>
+  <script type="module">
+    import * as THREE from 'https://cdn.skypack.dev/three@0.150.1';
+    import { GLTFLoader } from 'https://cdn.skypack.dev/three@0.150.1/examples/jsm/loaders/GLTFLoader.js';
 
-<script>
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-let width = window.innerWidth;
-let height = window.innerHeight;
-canvas.width = width;
-canvas.height = height;
+    let camera, scene, renderer, gun;
+    let zombies = [];
+    let bullets = [];
 
-const GRAVITY = 0.5, FLAP = -10, PIPE_WIDTH = 80, PIPE_GAP = 200, PIPE_SPACING = 150, BIRD_SIZE = 48;
-let birdY = height / 2, birdVelocity = 0, birdAngle = 0, pipes = [], frame = 0, gameOver = false, realGameStarted = false, waitingForFirstInput = true, score = 0;
-let highScore = parseInt(localStorage.getItem("highScore")) || 0;
-let useFirstScoreSound = true;
-let showHitboxes = false;
+    init();
 
-const birdImg = new Image(); birdImg.src = "IMG_1460.png";
-const bgImg = new Image(); bgImg.src = "FC5CD52C-CB05-42EB-B869-8A34F1FD71F9.png";
-const deathSound = document.getElementById("deathSound");
-const scoreSound1 = document.getElementById("scoreSound1");
-const scoreSound2 = document.getElementById("scoreSound2");
-const flapSound = document.getElementById("flapSound");
+    function init() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.z = 5;
 
-function drawBackground() { ctx.drawImage(bgImg, 0, 0, width, height); }
-function drawBird() {
-  ctx.save();
-  ctx.translate(width / 3 + BIRD_SIZE / 2, birdY + BIRD_SIZE / 2);
-  if (!waitingForFirstInput) ctx.rotate(birdAngle * Math.PI / 180);
-  ctx.drawImage(birdImg, -BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
-  if (showHitboxes) {
-    ctx.strokeStyle = "red";
-    ctx.strokeRect(-BIRD_SIZE / 2, -BIRD_SIZE / 2, BIRD_SIZE, BIRD_SIZE);
-  }
-  ctx.restore();
-}
-function drawPipe(pipe) {
-  ctx.fillStyle = "#00FF00";
-  ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.top);
-  ctx.fillRect(pipe.x, pipe.bottom, PIPE_WIDTH, height - pipe.bottom);
-  if (showHitboxes) {
-    ctx.strokeStyle = "blue";
-    ctx.strokeRect(pipe.x, 0, PIPE_WIDTH, pipe.top);
-    ctx.strokeRect(pipe.x, pipe.bottom, PIPE_WIDTH, height - pipe.bottom);
-  }
-}
-function addPipe() {
-  const top = Math.random() * (height - PIPE_GAP - 200) + 100;
-  pipes.push({ x: width, top, bottom: top + PIPE_GAP, passed: false });
-}
-function update() {
-  if (!gameOver) {
-    if (waitingForFirstInput) {
-      document.getElementById("tapText").style.display = "block";
-      if (pipes.length === 0) addPipe();
-      const nextPipe = pipes.find(p => p.x + PIPE_WIDTH > width / 3) || pipes[0];
-      const targetMid = (nextPipe.top + nextPipe.bottom) / 2;
-      const flapZoneTop = targetMid - 30, flapZoneBottom = targetMid + 30;
-      birdVelocity += GRAVITY; birdY += birdVelocity;
-      if (birdY < nextPipe.top) { birdY = nextPipe.top; birdVelocity = 0; }
-      if (birdY + BIRD_SIZE > flapZoneBottom) birdVelocity = FLAP;
-    } else {
-      document.getElementById("tapText").style.display = "none";
-      birdVelocity += GRAVITY;
-      if (realGameStarted && frame % PIPE_SPACING === 0) addPipe();
-      pipes.forEach(pipe => {
-        pipe.x -= 3;
-        if (!pipe.passed && width / 3 > pipe.x + PIPE_WIDTH / 2) {
-          pipe.passed = true;
-          score++;
-          if (showHitboxes) {
-            const flash = document.createElement("div");
-            flash.innerText = "+1";
-            flash.style.position = "absolute";
-            flash.style.left = "50%";
-            flash.style.top = "70px";
-            flash.style.transform = "translateX(-50%)";
-            flash.style.fontSize = "24px";
-            flash.style.fontFamily = "Arial, sans-serif";
-            flash.style.color = "lime";
-            flash.style.zIndex = 10;
-            flash.style.opacity = 1;
-            flash.style.transition = "opacity 0.5s ease-out, transform 0.5s ease-out";
-            document.body.appendChild(flash);
-            setTimeout(() => {
-              flash.style.opacity = 0;
-              flash.style.transform = "translateX(-50%) translateY(-20px)";
-              setTimeout(() => document.body.removeChild(flash), 500);
-            }, 50);
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
+
+      const light = new THREE.DirectionalLight(0xffffff, 1);
+      light.position.set(0, 10, 10);
+      scene.add(light);
+
+      const loader = new GLTFLoader();
+      loader.load('models/scene.gltf', gltf => {
+        gun = gltf.scene;
+        gun.scale.set(0.2, 0.2, 0.2);
+        gun.position.set(0.4, -0.5, -1);
+        camera.add(gun);
+      });
+
+      scene.add(camera);
+
+      spawnZombie();
+      animate();
+    }
+
+    function spawnZombie() {
+      const geometry = new THREE.BoxGeometry(1, 2, 1);
+      const material = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
+      const zombie = new THREE.Mesh(geometry, material);
+      zombie.position.set((Math.random() - 0.5) * 10, 0, -20);
+      scene.add(zombie);
+      zombies.push(zombie);
+      setTimeout(spawnZombie, 2000);
+    }
+
+    function shoot() {
+      const geometry = new THREE.SphereGeometry(0.1, 8, 8);
+      const material = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+      const bullet = new THREE.Mesh(geometry, material);
+      bullet.position.copy(camera.position);
+      bullet.velocity = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).multiplyScalar(0.5);
+      scene.add(bullet);
+      bullets.push(bullet);
+    }
+
+    window.addEventListener('click', shoot);
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      bullets.forEach((bullet, i) => {
+        bullet.position.add(bullet.velocity);
+        zombies.forEach((zombie, j) => {
+          if (bullet.position.distanceTo(zombie.position) < 1) {
+            scene.remove(zombie);
+            scene.remove(bullet);
+            zombies.splice(j, 1);
+            bullets.splice(i, 1);
           }
+        });
+        if (bullet.position.z < -50) {
+          scene.remove(bullet);
+          bullets.splice(i, 1);
         }
       });
-      if (parseInt(document.getElementById("scoreDisplay").innerText) !== score) {
-        document.getElementById("scoreDisplay").innerText = score;
-        (useFirstScoreSound ? scoreSound1 : scoreSound2).play();
-        useFirstScoreSound = !useFirstScoreSound;
-      }
-      pipes = pipes.filter(pipe => pipe.x + PIPE_WIDTH > 0);
-      pipes.forEach(pipe => {
-        const birdBoxX = width / 3, birdTop = birdY, birdBottom = birdY + BIRD_SIZE;
-        if (birdBoxX + BIRD_SIZE > pipe.x && birdBoxX < pipe.x + PIPE_WIDTH &&
-           (birdTop < pipe.top || birdBottom > pipe.bottom)) triggerGameOver();
+
+      zombies.forEach(zombie => {
+        zombie.position.z += 0.02;
       });
-      if (birdY > height || birdY < 0) triggerGameOver();
-      birdY += birdVelocity;
-      if (!waitingForFirstInput) birdAngle = birdVelocity < 0 ? -20 : Math.min(birdAngle + 2, 90);
+
+      renderer.render(scene, camera);
     }
-  } else {
-    birdVelocity += GRAVITY; birdY += birdVelocity; birdAngle += 6;
-  }
-}
-function draw() {
-  drawBackground(); pipes.forEach(drawPipe); drawBird();
-}
-function gameLoop() {
-  update(); draw(); frame++;
-  requestAnimationFrame(gameLoop);
-}
-function startRealGame() {
-  realGameStarted = true;
-  waitingForFirstInput = true;
-  pipes = []; birdY = height / 2; birdVelocity = 0; birdAngle = 0;
-  frame = 0; score = 0; gameOver = false;
-  document.getElementById("scoreDisplay").innerText = "0";
-  document.getElementById("startScreen").style.display = "none";
-  document.getElementById("gameOverScreen").classList.remove("show");
-  document.getElementById("fadeOverlay").style.opacity = 0;
-}
-function triggerGameOver() {
-  if (!gameOver) {
-    birdVelocity = FLAP; birdAngle = 0;
-    gameOver = true;
-    deathSound.play();
-    setTimeout(() => {
-      if (score > highScore) {
-        highScore = score;
-        localStorage.setItem("highScore", highScore);
-      }
-      document.getElementById("gameOverInfo").innerHTML = `High Score: ${highScore}<br>Score: ${score}`;
-      document.getElementById("gameOverScreen").classList.add("show");
-    }, 1000);
-  }
-}
-function restartGame() {
-  document.getElementById("fadeOverlay").style.opacity = 1;
-  setTimeout(() => startRealGame(), 1000);
-}
-document.getElementById("startButton").addEventListener("click", startRealGame);
-document.getElementById("restartButton").addEventListener("click", restartGame);
-document.getElementById("leaderboardBtn").addEventListener("click", () => {
-  window.location.href = "leaderboard.html";
-});
-function handleFirstFlap() {
-  if (realGameStarted && !gameOver) {
-    if (waitingForFirstInput) waitingForFirstInput = false;
-    birdVelocity = FLAP; flapSound.play();
-  }
-}
-document.addEventListener("keydown", (e) => {
-  if (e.code === "PageDown") showHitboxes = !showHitboxes;
-  else handleFirstFlap();
-});
-canvas.addEventListener("touchstart", e => { e.preventDefault(); handleFirstFlap(); }, { passive: false });
-window.addEventListener("resize", () => {
-  width = window.innerWidth;
-  height = window.innerHeight;
-  canvas.width = width;
-  canvas.height = height;
-});
-gameLoop();
-</script>
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
 </body>
 </html>
